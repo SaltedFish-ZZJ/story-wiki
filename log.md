@@ -4,6 +4,74 @@
 
 ---
 
+## 2026-06-20 — v0.3.0 增量分析功能
+
+### 新增功能
+- ✅ 增量分析核心逻辑 — pipeline.py
+  - `detect_existing_analysis()` 检测已有分析结果
+  - `_load_incremental_state()`/_save_incremental_state()` 状态管理
+  - `_read_existing_cards()` 从 vault 读取已有卡片
+  - `build_initial_context_for_incremental()` 构建初始上下文
+  - `analyze_chaptered_incremental()` 增量分析主函数
+  - `_filter_chapters()` 章节筛选（支持 start_chapter/end_chapter）
+
+### 使用场景
+- 长篇小说分批分析：第 1 次分析 1-20 章，第 2 次分析 21-40 章，追加而非覆盖
+- 断点续传：分析中断后可从断点继续
+- 避免重复：已分析章节自动跳过
+
+### CLI 参数
+- `--incremental` — 启用增量分析模式
+- `--start-chapter N` — 从第 N 章开始分析
+- `--end-chapter N` — 分析到第 N 章结束
+
+### 使用示例
+```bash
+# 首次分析（全量）
+python src/main.py --input data/input/红楼梦.txt --title "红楼梦"
+
+# 增量追加新章节
+python src/main.py --input data/input/红楼梦_后50章.txt --title "红楼梦" --incremental
+
+# 指定章节范围
+python src/main.py --input data/input/红楼梦.txt --title "红楼梦" --incremental --start-chapter 51 --end-chapter 100
+```
+
+### 新增文件
+- `docs/plans/incremental_analysis_plan.md` — 增量分析实现计划文档
+- `tests/test_incremental.py` — 单元测试（8 个测试全部通过）
+
+### 修改文件
+- `src/pipeline.py` — 增量分析核心逻辑
+- `src/main.py` — 添加 --incremental CLI 参数
+- `src/generator.py` — 增量写入功能
+- `src/config.py` — 添加增量分析配置
+- `TODO.md` — 标记增量分析为已完成
+
+---
+
+## 2026-06-20 — v0.2.1 P0 Bug 修复 + epub/pdf 支持
+
+### P0 Bug 修复
+- ✅ 章节排序修复 — `_extract_chapter_number()` 提取标题中的数字按数值排序，解决 "第10章" 排在 "第1章" 前面的问题（支持中文数字和阿拉伯数字）
+- ✅ 空章节过滤 — `MIN_CHAPTER_CHARS = 200`，碎片章节（如"第二部分"4字）自动跳过，节省 API 调用
+- ✅ API 重试 — `_call_deepseek_with_prompt()` 增加指数退避重试（最多 3 次），处理 ConnectionError 和 429/5xx 错误
+
+### P1 格式支持
+- ✅ epub 支持 — `extractor.py` 新增 `_read_epub()`，用 ebooklib 按 spine 顺序提取纯文本（需 `pip install ebooklib`）
+- ✅ pdf 支持 — `extractor.py` 新增 `_read_pdf()`，用 pymupdf 逐页提取文本（需 `pip install pymupdf`）
+- ✅ 优雅降级 — 未安装依赖时给出明确安装提示，不崩溃
+
+### 代码质量
+- 重构 splitter.py — 拆分 `_try_pattern()`、`_extract_chapter_at()`、`_parse_chinese_number()`、`_should_flush()`、`_flush_block()`、`_append_para()` 等辅助函数，降低认知复杂度
+
+### 新增/修改文件
+- `src/splitter.py` — 章节排序 + 空章节过滤 + 函数拆分
+- `src/analyzer.py` — API 重试机制
+- `src/extractor.py` — epub/pdf 格式支持
+
+---
+
 ## 2026-06-20 — v0.2.0 Phase 2 分章分析核心完成
 
 ### 里程碑
