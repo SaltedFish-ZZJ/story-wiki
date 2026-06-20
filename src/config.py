@@ -1,0 +1,54 @@
+"""
+Story Wiki - 配置模块
+管理 API key、路径、模型参数等。
+"""
+import os
+from pathlib import Path
+
+# ── .env 文件加载器（复用 tarot-cli 模式，无第三方依赖）──
+def _load_dotenv():
+    """从项目根目录加载 .env 文件。"""
+    env_path = Path(__file__).parent.parent / ".env"
+    if not env_path.exists():
+        return
+    with open(env_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" in line:
+                key, _, value = line.partition("=")
+                key = key.strip()
+                value = value.strip().strip('"').strip("'")
+                if key and key not in os.environ:
+                    os.environ[key] = value
+
+_load_dotenv()
+
+# ── 项目根目录 ──
+PROJECT_ROOT = Path(__file__).parent.parent
+
+# ── DeepSeek API 配置 ──
+DEEPSEEK_API_KEY = os.environ.get("STORY_WIKI_API_KEY", "")
+DEEPSEEK_BASE_URL = os.environ.get("STORY_WIKI_BASE_URL", "https://api.deepseek.com")
+DEEPSEEK_MODEL = os.environ.get("STORY_WIKI_MODEL", "deepseek-chat")
+
+# ── 路径配置 ──
+VAULT_DIR = Path(os.environ.get("STORY_WIKI_VAULT", r"D:\Obsidian_Work\story_wiki"))
+DATA_DIR = PROJECT_ROOT / "data"
+INPUT_DIR = DATA_DIR / "input"
+STATE_DIR = DATA_DIR / "state"
+
+# ── 分析参数 ──
+MAX_TEXT_LENGTH = 8000       # Demo 阶段单次最大文本量（字符）
+TEMPERATURE = 0.3            # 低温度，输出更稳定
+MAX_TOKENS = 4096            # 最大输出 token
+
+# ── 确保必要目录存在 ──
+def ensure_dirs():
+    """创建必要的目录结构。"""
+    for d in [INPUT_DIR, STATE_DIR, VAULT_DIR]:
+        d.mkdir(parents=True, exist_ok=True)
+
+# ── 启动时自动创建 ──
+ensure_dirs()

@@ -1,0 +1,13 @@
+# 敏感配置（API Key）
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# AI 分析中间状态（调试用，不需要版本控制）
+data/state/
+
+# Obsidian 配置（每台机器不同）
+vault/.obsidian/
