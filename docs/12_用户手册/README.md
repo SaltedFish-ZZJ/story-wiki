@@ -14,7 +14,7 @@ python src/analyzer.py --input data/input/你的文件.txt
 
 ### 3. 查看结果
 
-用 Obsidian 打开 `D:\Obsidian_Work\story_wiki\` 目录。
+用 Obsidian 打开 `D:\Obsidian_Work\myself_wiki\story_wiki\` 目录。
 
 ### 4. 查看关系图
 

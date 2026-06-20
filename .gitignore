@@ -11,3 +11,4 @@ data/state/
 
 # Obsidian 配置（每台机器不同）
 vault/.obsidian/
+src/story/
