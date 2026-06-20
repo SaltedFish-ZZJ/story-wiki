@@ -38,6 +38,7 @@ VAULT_DIR = Path(os.environ.get("STORY_WIKI_VAULT", r"D:\Obsidian_Work\myself_wi
 DATA_DIR = PROJECT_ROOT / "data"
 INPUT_DIR = DATA_DIR / "input"
 STATE_DIR = DATA_DIR / "state"
+CACHE_DIR = STATE_DIR / "cache"
 
 # ── 分析参数 ──
 MAX_TEXT_LENGTH = 400000     # DeepSeek 1M上下文，留余量设40万字（约40-80万token）
@@ -48,6 +49,9 @@ MAX_TOKENS = 8192            # 最大输出 token（增加以容纳更多人物/
 CHAPTER_THRESHOLD = 5000     # 超过此字数自动启用分章分析
 CHAPTER_CHUNK_SIZE = 5000    # 无章节标记时每块的目标字数
 CHAPTER_CONTEXT_CHARS = 500  # 每章分析时附加的已知人物/设定上下文摘要最大字数
+
+# ── 增量分析参数 ──
+INCREMENTAL_STATE_FILE = ".incremental_state.json"  # 增量状态文件名
 
 # ── 确保必要目录存在 ──
 def ensure_dirs():
