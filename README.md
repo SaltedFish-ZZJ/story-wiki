@@ -14,13 +14,16 @@ AI 驱动的故事知识库系统。
 # 1. 安装依赖
 pip install requests
 
-# 2. 配置 DeepSeek API Key
-export DEEPSEEK_API_KEY="your_key_here"
+# 2. 配置 API（复制 .env.example 为 .env 并填入配置）
+cp .env.example .env
 
-# 3. 运行分析
-python src/analyzer.py --input data/input/your_novel.txt --output vault/
+# 3. 运行分析（长文本自动分章）
+python src/main.py --input data/input/your_novel.txt --title "书名"
 
-# 4. 用 Obsidian 打开 vault/ 目录，查看 Graph View
+# 4. 交互式分析
+python src/agent.py
+
+# 5. 用 Obsidian 打开 vault 目录，查看 Graph View
 ```
 
 ## 项目结构

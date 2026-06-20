@@ -44,6 +44,11 @@ MAX_TEXT_LENGTH = 400000     # DeepSeek 1M上下文，留余量设40万字（约
 TEMPERATURE = 0.3            # 低温度，输出更稳定
 MAX_TOKENS = 8192            # 最大输出 token（增加以容纳更多人物/设定）
 
+# ── 分章分析参数 ──
+CHAPTER_THRESHOLD = 5000     # 超过此字数自动启用分章分析
+CHAPTER_CHUNK_SIZE = 5000    # 无章节标记时每块的目标字数
+CHAPTER_CONTEXT_CHARS = 500  # 每章分析时附加的已知人物/设定上下文摘要最大字数
+
 # ── 确保必要目录存在 ──
 def ensure_dirs():
     """创建必要的目录结构。"""

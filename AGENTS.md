@@ -9,7 +9,7 @@ Story Wiki 是一个 AI 驱动的故事知识库系统。能将任意文字材�
 ## 技术栈
 
 - **语言**：Python 3.13
-- **AI 模型**：DeepSeek API
+- **AI 模型**：小米 mimo-v2.5（通过 token-plan API）
 - **输出格式**：Obsidian Markdown（frontmatter + wikilink）
 - **依赖**：requests, json, re, pathlib
 
@@ -19,14 +19,16 @@ Story Wiki 是一个 AI 驱动的故事知识库系统。能将任意文字材�
 story_wiki/
 ├── AGENTS.md              ← 你正在看的文件
 ├── README.md              ← 项目说明
-├── src/                   ← 源代码（待创建）
-│   ├── analyzer.py        ← AI 分析核心
-│   ├── extractor.py       ← 文本提取（txt/epub/pdf）
+├── src/                   ← 源代码
+│   ├── config.py          ← 配置（API key、路径、参数）
+│   ├── extractor.py       ← 文本提取（txt）
 │   ├── splitter.py        ← 章节切分
+│   ├── analyzer.py        ← AI 分析核心 + 分章 prompt
+│   ├── pipeline.py        ← 分章分析管线
 │   ├── generator.py       ← Obsidian 笔记生成
-│   └── config.py          ← 配置（API key、路径等）
-├── vault/                 ← Obsidian vault 输出目录（待创建）
-├── data/                  ← 输入文本和中间数据（待创建）
+│   ├── main.py            ← CLI 入口（自动判断分章）
+│   └── agent.py           ← 交互式分析（支持分章）
+├── data/                  ← 输入文本和中间数据
 │   └── input/             ← 放入待分析的文本
 └── docs/                  ← 项目文档
 ```
@@ -82,9 +84,11 @@ Obsidian Graph View 自动识别为边。
 - [x] Obsidian 笔记生成
 - [x] 用真实文本验证 Graph View
 
-**Phase 2：扩展功能** 📋 规划中
-- [ ] 章节切分 + 逐章分析
-- [ ] 长文本分块处理
+**Phase 2：扩展功能** 🔧 开发中
+- [x] 章节切分器（splitter.py — 按"第X章/第X回"等模式切分）
+- [x] 逐章分析 + 上下文传递（pipeline.py + analyzer.py 分章 prompt）
+- [x] 全局合并去重（同名人物合并、关系去重）
+- [x] main.py / agent.py 自动判断分章
 - [ ] epub/pdf 格式支持
 - [ ] 事件卡片、时间线
 - [ ] 多本书管理

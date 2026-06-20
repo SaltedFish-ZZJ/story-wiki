@@ -10,6 +10,7 @@ from pathlib import Path
 import requests
 
 from src.config import (
+    CHAPTER_CONTEXT_CHARS,
     DEEPSEEK_API_KEY,
     DEEPSEEK_BASE_URL,
     DEEPSEEK_MODEL,
@@ -96,37 +97,7 @@ def analyze_text(text: str, title: str = None) -> dict:
 
 def _call_deepseek(text: str) -> str:
     """调用 DeepSeek API，返回原始响应文本。"""
-    if not DEEPSEEK_API_KEY:
-        raise ValueError(
-            "未配置 API Key！请设置环境变量 STORY_WIKI_API_KEY 或在 .env 文件中配置"
-        )
-
-    url = f"{DEEPSEEK_BASE_URL.rstrip('/')}/v1/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
-        "Content-Type": "application/json",
-    }
-    payload = {
-        "model": DEEPSEEK_MODEL,
-        "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": f"请分析以下文本：\n\n{text}"},
-        ],
-        "temperature": TEMPERATURE,
-        "max_tokens": MAX_TOKENS,
-    }
-
-    try:
-        response = requests.post(url, headers=headers, json=payload, timeout=120)
-        response.raise_for_status()
-        data = response.json()
-        return data["choices"][0]["message"]["content"].strip()
-    except requests.HTTPError as e:
-        raise RuntimeError(f"API 请求失败: HTTP {e.response.status_code} - {e.response.text[:200]}")
-    except requests.ConnectionError:
-        raise RuntimeError("无法连接到 DeepSeek API，请检查网络或 VPN")
-    except Exception as e:
-        raise RuntimeError(f"API 调用异常: {e}")
+    return _call_deepseek_with_prompt(SYSTEM_PROMPT, text)
 
 
 def _parse_response(raw: str) -> dict:
@@ -164,3 +135,149 @@ def _save_raw_response(raw: str, tag: str):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filepath = STATE_DIR / f"response_{tag}_{timestamp}.txt"
     filepath.write_text(raw, encoding="utf-8")
+
+
+# ── 分章分析 ──────────────────────────────────────────────────
+
+CHAPTER_SYSTEM_PROMPT = """你是一个专业的文学分析助手。你正在逐章分析一部作品。
+
+当前已知信息如下（可能为空）：
+{context}
+
+你的任务是分析用户提供的章节文本，返回 JSON。规则：
+1. 提取本章中**新出现**的人物和设定（已知的不要重复提取）
+2. 提取本章中**新出现**的人物关系（包括已知人物之间的新关系）
+3. 如果已知人物在本章有新的信息（身份补充、性格展现等），也请补充
+4. 严格以 JSON 格式返回，不要添加任何 markdown 包裹或额外文字
+
+JSON 结构：
+{{
+  "characters": [
+    {{
+      "name": "人名",
+      "aliases": ["别名1", "别名2"],
+      "identity": "身份描述",
+      "personality": "性格特征",
+      "gender": "男/女/未知",
+      "faction": "所属势力/群体",
+      "relationships": [
+        {{"target": "另一人名", "nature": "关系类型"}}
+      ]
+    }}
+  ],
+  "settings": [
+    {{
+      "name": "设定名",
+      "type": "地点/组织/体系",
+      "description": "描述"
+    }}
+  ],
+  "chapter_summary": "本章内容简述（一句话）"
+}}
+
+规则：
+1. 只提取文本中明确提到的信息，不要推测
+2. 没有信息的字段填 null
+3. 关系类型用简洁的词：恋人/父子/母子/师徒/敌对/朋友/主仆/同门/夫妻/兄弟/姐妹/君臣/同事/邻居/其他
+4. aliases 如果没有别名就填空数组 []
+5. characters 和 settings 如果没有就填空数组 []
+6. 整个响应必须是一个合法的 JSON 对象"""
+
+
+def analyze_chapter(text: str, known_characters: list = None, known_settings: list = None) -> dict:
+    """
+    分析单个章节，携带已知人物/设定上下文。
+
+    Args:
+        text: 章节文本
+        known_characters: 已知人物列表（之前章节提取的）
+        known_settings: 已知设定列表
+
+    Returns:
+        本章的分析结果 dict（characters, settings, chapter_summary）
+    """
+    # 构建上下文摘要
+    context_parts = []
+    if known_characters:
+        char_lines = []
+        for c in known_characters:
+            name = c.get("name", "?")
+            identity = c.get("identity") or ""
+            faction = c.get("faction") or ""
+            desc = name
+            if identity:
+                desc += f"（{identity}）"
+            if faction:
+                desc += f"，{faction}"
+            char_lines.append(desc)
+        context_str = "、".join(char_lines)
+        if len(context_str) > CHAPTER_CONTEXT_CHARS:
+            context_str = context_str[:CHAPTER_CONTEXT_CHARS] + "..."
+        context_parts.append(f"已知人物：{context_str}")
+
+    if known_settings:
+        setting_lines = []
+        for s in known_settings:
+            name = s.get("name", "?")
+            stype = s.get("type") or ""
+            desc = name
+            if stype:
+                desc += f"（{stype}）"
+            setting_lines.append(desc)
+        context_str = "、".join(setting_lines)
+        if len(context_str) > CHAPTER_CONTEXT_CHARS:
+            context_str = context_str[:CHAPTER_CONTEXT_CHARS] + "..."
+        context_parts.append(f"已知设定：{context_str}")
+
+    context_text = "\n".join(context_parts) if context_parts else "（暂无已知信息，这是第一个章节）"
+
+    # 构建 prompt
+    system_prompt = CHAPTER_SYSTEM_PROMPT.format(context=context_text)
+
+    # 调用 API
+    raw_response = _call_deepseek_with_prompt(system_prompt, text)
+
+    # 解析
+    try:
+        result = _parse_response(raw_response)
+    except (ValueError, json.JSONDecodeError) as e:
+        _save_raw_response(raw_response, "chapter_error")
+        raise ValueError(f"章节分析返回无法解析: {e}")
+
+    _save_raw_response(raw_response, "chapter_success")
+    return result
+
+
+def _call_deepseek_with_prompt(system_prompt: str, text: str) -> str:
+    """用自定义 system prompt 调用 DeepSeek API。"""
+    if not DEEPSEEK_API_KEY:
+        raise ValueError(
+            "未配置 API Key！请设置环境变量 STORY_WIKI_API_KEY 或在 .env 文件中配置"
+        )
+
+    url = f"{DEEPSEEK_BASE_URL.rstrip('/')}/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": DEEPSEEK_MODEL,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"请分析以下章节文本：\n\n{text}"},
+        ],
+        "temperature": TEMPERATURE,
+        "max_tokens": MAX_TOKENS,
+    }
+
+    try:
+        response = requests.post(url, headers=headers, json=payload, timeout=120)
+        response.raise_for_status()
+        data = response.json()
+        return data["choices"][0]["message"]["content"].strip()
+    except requests.HTTPError as e:
+        raise RuntimeError(f"API 请求失败: HTTP {e.response.status_code} - {e.response.text[:200]}")
+    except requests.ConnectionError:
+        raise RuntimeError("无法连接到 DeepSeek API，请检查网络或 VPN")
+    except Exception as e:
+        raise RuntimeError(f"API 调用异常: {e}")

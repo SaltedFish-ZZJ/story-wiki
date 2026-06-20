@@ -1,6 +1,7 @@
 """
 Story Wiki - 主入口
 串联整个分析流程：读取文本 → AI 分析 → 生成 Obsidian 笔记。
+支持自动分章处理长文本。
 """
 import argparse
 import sys
@@ -9,9 +10,10 @@ from pathlib import Path
 # 确保项目根目录在 Python path 中
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.config import VAULT_DIR
+from src.config import CHAPTER_THRESHOLD, CHAPTER_CHUNK_SIZE, VAULT_DIR
 from src.extractor import extract_text
 from src.analyzer import analyze_text
+from src.pipeline import analyze_chaptered
 from src.generator import generate_vault
 
 
@@ -39,6 +41,17 @@ def main():
         action="store_true",
         help="只分析不生成文件，打印 JSON 结果",
     )
+    parser.add_argument(
+        "--no-split",
+        action="store_true",
+        help="禁用分章分析，强制单次处理",
+    )
+    parser.add_argument(
+        "--chunk-size",
+        type=int,
+        default=CHAPTER_CHUNK_SIZE,
+        help=f"无章节标记时每块的目标字数（默认: {CHAPTER_CHUNK_SIZE}）",
+    )
 
     args = parser.parse_args()
 
@@ -52,13 +65,27 @@ def main():
 
     print(f"      读取完成，共 {len(text)} 字")
 
-    # Step 2: AI 分析
-    print(f"[2/3] 正在调用 AI 分析...")
-    try:
-        analysis = analyze_text(text, title=args.title)
-    except (ValueError, RuntimeError) as e:
-        print(f"[错误] {e}")
-        sys.exit(1)
+    # Step 2: AI 分析（自动判断是否分章）
+    use_split = not args.no_split and len(text) > CHAPTER_THRESHOLD
+
+    if use_split:
+        print(f"[2/3] 文本较长（>{CHAPTER_THRESHOLD}字），启用分章分析...")
+        try:
+            analysis = analyze_chaptered(
+                text=text,
+                title=args.title,
+                chunk_size=args.chunk_size,
+            )
+        except (ValueError, RuntimeError) as e:
+            print(f"[错误] {e}")
+            sys.exit(1)
+    else:
+        print(f"[2/3] 正在调用 AI 分析...")
+        try:
+            analysis = analyze_text(text, title=args.title)
+        except (ValueError, RuntimeError) as e:
+            print(f"[错误] {e}")
+            sys.exit(1)
 
     title = analysis.get("title", "未命名")
     chars = analysis.get("characters", [])

@@ -1,6 +1,7 @@
 """
 Story Wiki - 交互式分析 Agent
 启动后进入对话模式，丢文本或文件路径即可自动分析。
+支持长文本自动分章。
 """
 import sys
 import json
@@ -8,21 +9,23 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.config import VAULT_DIR, INPUT_DIR
+from src.config import CHAPTER_THRESHOLD, VAULT_DIR, INPUT_DIR
 from src.extractor import extract_text
 from src.analyzer import analyze_text
+from src.pipeline import analyze_chaptered
 from src.generator import generate_vault
 
 
 HELP_TEXT = """
 ╔══════════════════════════════════════════════════╗
-║           Story Wiki 分析 Agent v0.1             ║
+║         Story Wiki 分析 Agent v0.2               ║
 ╠══════════════════════════════════════════════════╣
 ║                                                  ║
 ║  使用方式：                                       ║
 ║    1. 输入文件路径 → 自动读取并分析               ║
 ║    2. 直接粘贴文本 → 自动分析                     ║
-║    3. 输入命令：                                  ║
+║    3. 长文本自动分章处理（逐章分析+合并去重）      ║
+║    4. 输入命令：                                  ║
 ║       /help    — 显示帮助                         ║
 ║       /list    — 列出已分析的作品                  ║
 ║       /vault   — 打开 vault 目录                  ║
@@ -58,18 +61,29 @@ def list_analyzed_books():
 
 
 def analyze_and_generate(text: str, title: str = None):
-    """执行分析 + 生成的完整流程。"""
+    """执行分析 + 生成的完整流程。自动判断是否分章。"""
     print(f"\n{'='*50}")
     print(f"📝 文本长度: {len(text)} 字")
     print(f"{'='*50}")
 
-    # Step 1: AI 分析
-    print("\n🤖 正在调用 DeepSeek 分析...")
-    try:
-        analysis = analyze_text(text, title=title)
-    except (ValueError, RuntimeError) as e:
-        print(f"❌ 分析失败: {e}")
-        return
+    # 自动判断是否分章
+    use_split = len(text) > CHAPTER_THRESHOLD
+
+    if use_split:
+        print(f"\n📖 文本较长（>{CHAPTER_THRESHOLD}字），启用分章分析...")
+        try:
+            analysis = analyze_chaptered(text=text, title=title)
+        except (ValueError, RuntimeError) as e:
+            print(f"❌ 分析失败: {e}")
+            return
+    else:
+        # Step 1: AI 分析（单次）
+        print("\n🤖 正在调用 DeepSeek 分析...")
+        try:
+            analysis = analyze_text(text, title=title)
+        except (ValueError, RuntimeError) as e:
+            print(f"❌ 分析失败: {e}")
+            return
 
     title = analysis.get("title", "未命名")
     characters = analysis.get("characters", [])
