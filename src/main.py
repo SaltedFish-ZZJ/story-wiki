@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from src.config import CHAPTER_THRESHOLD, CHAPTER_CHUNK_SIZE, VAULT_DIR
 from src.extractor import extract_text
 from src.analyzer import analyze_text
-from src.pipeline import analyze_chaptered
+from src.pipeline import analyze_chaptered, analyze_chaptered_incremental
 from src.generator import generate_vault
 
 
@@ -52,6 +52,23 @@ def main():
         default=CHAPTER_CHUNK_SIZE,
         help=f"无章节标记时每块的目标字数（默认: {CHAPTER_CHUNK_SIZE}）",
     )
+    parser.add_argument(
+        "--incremental",
+        action="store_true",
+        help="启用增量分析模式（追加到已有笔记，不覆盖）",
+    )
+    parser.add_argument(
+        "--start-chapter",
+        type=int,
+        default=None,
+        help="起始章节编号（从 1 开始，需配合 --incremental 使用）",
+    )
+    parser.add_argument(
+        "--end-chapter",
+        type=int,
+        default=None,
+        help="结束章节编号（需配合 --incremental 使用）",
+    )
 
     args = parser.parse_args()
 
@@ -69,16 +86,30 @@ def main():
     use_split = not args.no_split and len(text) > CHAPTER_THRESHOLD
 
     if use_split:
-        print(f"[2/3] 文本较长（>{CHAPTER_THRESHOLD}字），启用分章分析...")
-        try:
-            analysis = analyze_chaptered(
-                text=text,
-                title=args.title,
-                chunk_size=args.chunk_size,
-            )
-        except (ValueError, RuntimeError) as e:
-            print(f"[错误] {e}")
-            sys.exit(1)
+        if args.incremental:
+            print(f"[2/3] 文本较长（>{CHAPTER_THRESHOLD}字），启用增量分章分析...")
+            try:
+                analysis = analyze_chaptered_incremental(
+                    text=text,
+                    title=args.title,
+                    chunk_size=args.chunk_size,
+                    start_chapter=args.start_chapter,
+                    end_chapter=args.end_chapter,
+                )
+            except (ValueError, RuntimeError) as e:
+                print(f"[错误] {e}")
+                sys.exit(1)
+        else:
+            print(f"[2/3] 文本较长（>{CHAPTER_THRESHOLD}字），启用分章分析...")
+            try:
+                analysis = analyze_chaptered(
+                    text=text,
+                    title=args.title,
+                    chunk_size=args.chunk_size,
+                )
+            except (ValueError, RuntimeError) as e:
+                print(f"[错误] {e}")
+                sys.exit(1)
     else:
         print(f"[2/3] 正在调用 AI 分析...")
         try:
@@ -87,11 +118,12 @@ def main():
             print(f"[错误] {e}")
             sys.exit(1)
 
-    title = analysis.get("title", "未命名")
+    title = analysis.get("title") or "未命名"
     chars = analysis.get("characters", [])
     settings = analysis.get("settings", [])
+    events = analysis.get("events", [])
     print(f"      分析完成: 「{title}」")
-    print(f"      人物: {len(chars)} 个 | 设定: {len(settings)} 个")
+    print(f"      人物: {len(chars)} 个 | 设定: {len(settings)} 个 | 事件: {len(events)} 个")
 
     # dry-run 模式：只打印 JSON
     if args.dry_run:
