@@ -1,0 +1,115 @@
+{
+  "characters": [
+    {
+      "name": "罗伯特·清崎",
+      "aliases": [],
+      "identity": "公立学校学生，穷孩子",
+      "personality": "好奇、有创业精神",
+      "gender": "男",
+      "faction": "学生",
+      "relationships": [
+        {"target": "迈克", "nature": "朋友"},
+        {"target": "穷爸爸", "nature": "父子"},
+        {"target": "富爸爸", "nature": "师徒"}
+      ]
+    },
+    {
+      "name": "迈克",
+      "aliases": [],
+      "identity": "公立学校学生，穷孩子",
+      "personality": "合作、忠诚",
+      "gender": "男",
+      "faction": "学生",
+      "relationships": [
+        {"target": "罗伯特·清崎", "nature": "朋友"},
+        {"target": "富爸爸", "nature": "父子"}
+      ]
+    },
+    {
+      "name": "穷爸爸",
+      "aliases": [],
+      "identity": "公立学校教师，博士，为政府工作",
+      "personality": "传统、教育者",
+      "gender": "男",
+      "faction": "教育工作者/政府雇员",
+      "relationships": [
+        {"target": "罗伯特·清崎", "nature": "父子"}
+      ]
+    },
+    {
+      "name": "富爸爸",
+      "aliases": [],
+      "identity": "夏威夷最富有的人之一，生意人，拥有多个生意如小型超市、建筑公司",
+      "personality": "智慧、严厉、富有洞察力",
+      "gender": "男",
+      "faction": "企业家",
+      "relationships": [
+        {"target": "迈克", "nature": "父子"},
+        {"target": "罗伯特·清崎", "nature": "师徒"}
+      ]
+    },
+    {
+      "name": "马丁夫人",
+      "aliases": [],
+      "identity": "富爸爸小型超市的监工",
+      "personality": "慈祥、耐心、强调努力工作",
+      "gender": "女",
+      "faction": "富爸爸的雇员",
+      "relationships": [
+        {"target": "富爸爸", "nature": "雇佣关系"}
+      ]
+    },
+    {
+      "name": "迈克的妹妹",
+      "aliases": [],
+      "identity": "连环画阅览室管理员",
+      "personality": "爱读书、尽职尽责",
+      "gender": "女",
+      "faction": "阅览室管理员",
+      "relationships": [
+        {"target": "迈克", "nature": "兄妹"},
+        {"target": "罗伯特·清崎", "nature": "雇佣关系"}
+      ]
+    },
+    {
+      "name": "书商",
+      "aliases": [],
+      "identity": "连环画书商",
+      "personality": null,
+      "gender": "未知",
+      "faction": "商人",
+      "relationships": [
+        {"target": "罗伯特·清崎", "nature": "交易关系"},
+        {"target": "迈克", "nature": "交易关系"}
+      ]
+    }
+  ],
+  "settings": [
+    {
+      "name": "小型超市",
+      "type": "商业场所",
+      "description": "富爸爸拥有的便利店雏形，类似7-11"
+    },
+    {
+      "name": "连环画阅览室",
+      "type": "生意/娱乐场所",
+      "description": "罗伯特和迈克创建的生意，提供连环画供儿童阅读"
+    },
+    {
+      "name": "甘蔗种植园",
+      "type": "产业",
+      "description": "镇上的主要产业，基米的爸爸工作的地方"
+    },
+    {
+      "name": "税收",
+      "type": "经济体系",
+      "description": "政府收取的费用，富爸爸解释其对财务的影响"
+    },
+    {
+      "name": "金本位",
+      "type": "经济体系",
+      "description": "美元与黄金挂钩的货币体系，富爸爸提到其可能取消"
+    }
+  ],
+  "chapter_summary": "本章讲述罗伯特·清崎9岁时，在富爸爸的教导下学习“富人不为钱工作”的理念，通过免费工作和经营连环画阅览室来理解金钱和财务知识。"
+}

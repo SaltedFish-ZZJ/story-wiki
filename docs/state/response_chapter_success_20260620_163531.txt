@@ -1,0 +1,63 @@
+{
+  "characters": [
+    {
+      "name": "凯文·科斯特纳",
+      "aliases": [],
+      "identity": "好莱坞影星",
+      "personality": null,
+      "gender": "男",
+      "faction": null,
+      "relationships": []
+    },
+    {
+      "name": "约翰·肯尼迪",
+      "aliases": ["肯尼迪"],
+      "identity": "美国总统",
+      "personality": null,
+      "gender": "男",
+      "faction": "美国政府",
+      "relationships": [
+        {"target": "穷爸爸", "nature": "崇拜对象"}
+      ]
+    },
+    {
+      "name": "罗宾汉",
+      "aliases": [],
+      "identity": "传说英雄/窃贼",
+      "personality": null,
+      "gender": "男",
+      "faction": null,
+      "relationships": [
+        {"target": "富爸爸", "nature": "其他"}
+      ]
+    }
+  ],
+  "settings": [
+    {
+      "name": "1031条款",
+      "type": "法律条款",
+      "description": "允许销售者对“为购买更贵的房地产而卖出现有房地产时”获得的资本利得延迟纳税。"
+    },
+    {
+      "name": "公司",
+      "type": "组织",
+      "description": "作为法律实体，富人用来避税和保护财富。"
+    },
+    {
+      "name": "施乐公司",
+      "type": "组织",
+      "description": "罗伯特·清崎曾工作过的公司。"
+    },
+    {
+      "name": "美国宪法修正案第16条",
+      "type": "法律",
+      "description": "规定征收所得税。"
+    },
+    {
+      "name": "夏威夷",
+      "type": "地点",
+      "description": "罗伯特·清崎进行房地产投资的地方。"
+    }
+  ],
+  "chapter_summary": "本章讨论了税收的历史、公司的力量以及财商的重要性，强调富人如何利用公司避税和积累财富。"
+}

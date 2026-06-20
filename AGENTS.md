@@ -89,7 +89,7 @@ Obsidian Graph View 自动识别为边。
 - [x] 逐章分析 + 上下文传递（pipeline.py + analyzer.py 分章 prompt）
 - [x] 全局合并去重（同名人物合并、关系去重）
 - [x] main.py / agent.py 自动判断分章
-- [ ] epub/pdf 格式支持
+- [x] epub/pdf 格式支持（extractor.py — ebooklib + pymupdf）
 - [ ] 事件卡片、时间线
 - [ ] 多本书管理
 

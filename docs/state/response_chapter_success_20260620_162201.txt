@@ -1,0 +1,99 @@
+{
+  "characters": [
+    {
+      "name": "迈克",
+      "aliases": [],
+      "identity": "罗伯特的朋友，穷孩子",
+      "personality": null,
+      "gender": "男",
+      "faction": "穷孩子群体",
+      "relationships": [
+        {"target": "罗伯特·清崎", "nature": "朋友"},
+        {"target": "富爸爸", "nature": "父子"}
+      ]
+    },
+    {
+      "name": "基米",
+      "aliases": [],
+      "identity": "富人孩子",
+      "personality": null,
+      "gender": "男",
+      "faction": "富人孩子群体",
+      "relationships": []
+    },
+    {
+      "name": "基米的妈妈",
+      "aliases": [],
+      "identity": "开凯迪拉克的富人母亲",
+      "personality": null,
+      "gender": "女",
+      "faction": "富人家庭",
+      "relationships": [
+        {"target": "基米", "nature": "母子"}
+      ]
+    },
+    {
+      "name": "马丁夫人",
+      "aliases": [],
+      "identity": "富爸爸超市的员工",
+      "personality": "慈祥而有耐心",
+      "gender": "女",
+      "faction": "富爸爸的雇员",
+      "relationships": [
+        {"target": "富爸爸", "nature": "雇主雇员"}
+      ]
+    },
+    {
+      "name": "书商",
+      "aliases": [],
+      "identity": "连环画书商",
+      "personality": null,
+      "gender": "男",
+      "faction": null,
+      "relationships": []
+    },
+    {
+      "name": "迈克的妹妹",
+      "aliases": [],
+      "identity": "迈克的妹妹，连环画阅览室的图书管理员",
+      "personality": "爱读书，尽职尽责",
+      "gender": "女",
+      "faction": "罗伯特和迈克的雇员",
+      "relationships": [
+        {"target": "迈克", "nature": "姐妹"}
+      ]
+    },
+    {
+      "name": "乞丐",
+      "aliases": [],
+      "identity": "公园里的乞丐",
+      "personality": null,
+      "gender": "男",
+      "faction": null,
+      "relationships": []
+    }
+  ],
+  "settings": [
+    {
+      "name": "甘蔗种植园",
+      "type": "地点/组织",
+      "description": "镇上的经济支柱，由种植园主和有钱人控制"
+    },
+    {
+      "name": "公立学校",
+      "type": "组织",
+      "description": "罗伯特上的学校，多数学生是富人的孩子"
+    },
+    {
+      "name": "小型超市",
+      "type": "组织",
+      "description": "富爸爸拥有的类似7-11的便利店"
+    },
+    {
+      "name": "连环画阅览室",
+      "type": "组织",
+      "description": "罗伯特和迈克创建的生意，向孩子们提供连环画阅读"
+    }
+  ],
+  "chapter_summary": "本章讲述了罗伯特·清崎小时候想变富，在父亲建议下与朋友迈克尝试赚钱，最终在富爸爸的指导下学习不为钱工作，理解恐惧和贪婪的陷阱，并开始探索让钱为自己工作。"
+}

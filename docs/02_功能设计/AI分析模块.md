@@ -2,7 +2,7 @@
 
 ## 职责
 
-调用 DeepSeek API，从纯文本中提取人物、设定、关系等结构化数据。
+调用 DeepSeek API，从纯文本中提取人物、设定、事件、关系等结构化数据。
 
 ## 接口
 
@@ -16,6 +16,7 @@ def analyze_text(text: str) -> dict:
         "title": "作品名",
         "characters": [...],
         "settings": [...],
+        "events": [...],
         "summary": "一句话摘要"
     }
     """
@@ -29,6 +30,14 @@ def analyze_text(text: str) -> dict:
    - 人物：姓名、别名、身份、性格、性别、所属势力
    - 关系：每对人物之间的关系类型
    - 设定：地点/组织/体系的名称和描述
+   - 事件：关键事件（转折点、重要情节、冲突等）
+     - name：事件名（4-8字概括）
+     - time：时间（从文本推断）
+     - participants：参与人物名
+     - location：发生地点（引用设定名）
+     - description：一句话描述
+     - cause：前置事件名（因果关系）
+     - chapter：章节名（分章分析时自动填充）
 4. **容错**：文本中没有明确信息的字段用 null
 
 ## API 调用

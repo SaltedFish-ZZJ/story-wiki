@@ -1,0 +1,146 @@
+{
+  "characters": [
+    {
+      "name": "查尔斯·施瓦布",
+      "aliases": [],
+      "identity": "美国最大的钢铁公司的领导人",
+      "personality": null,
+      "gender": "男",
+      "faction": "1923年芝加哥会议与会者",
+      "relationships": []
+    },
+    {
+      "name": "塞缪尔·英萨尔",
+      "aliases": [],
+      "identity": "世界最大的经营公共基础设施的公司的主席",
+      "personality": null,
+      "gender": "男",
+      "faction": "1923年芝加哥会议与会者",
+      "relationships": []
+    },
+    {
+      "name": "霍华德·霍普森",
+      "aliases": [],
+      "identity": "世界最大的煤气公司的领导人",
+      "personality": null,
+      "gender": "男",
+      "faction": "1923年芝加哥会议与会者",
+      "relationships": []
+    },
+    {
+      "name": "埃娃·克鲁格",
+      "aliases": [],
+      "identity": "国际火柴公司的总裁",
+      "personality": null,
+      "gender": "女",
+      "faction": "1923年芝加哥会议与会者",
+      "relationships": []
+    },
+    {
+      "name": "利昂·弗雷泽",
+      "aliases": [],
+      "identity": "国际清算银行的总裁",
+      "personality": null,
+      "gender": "男",
+      "faction": "1923年芝加哥会议与会者",
+      "relationships": []
+    },
+    {
+      "name": "理查德·惠特尼",
+      "aliases": [],
+      "identity": "纽约证券交易所主席",
+      "personality": null,
+      "gender": "男",
+      "faction": "1923年芝加哥会议与会者",
+      "relationships": []
+    },
+    {
+      "name": "阿瑟·科顿",
+      "aliases": [],
+      "identity": "股票投机商",
+      "personality": null,
+      "gender": "男",
+      "faction": "1923年芝加哥会议与会者",
+      "relationships": []
+    },
+    {
+      "name": "杰斯·利弗莫尔",
+      "aliases": [],
+      "identity": "股票投机商",
+      "personality": null,
+      "gender": "男",
+      "faction": "1923年芝加哥会议与会者",
+      "relationships": []
+    },
+    {
+      "name": "阿尔伯特·富尔",
+      "aliases": [],
+      "identity": "美国第29任总统沃伦·甘梅利尔·哈定的内阁成员",
+      "personality": null,
+      "gender": "男",
+      "faction": "1923年芝加哥会议与会者",
+      "relationships": []
+    },
+    {
+      "name": "巴克敏斯特·富勒",
+      "aliases": [],
+      "identity": "“生活大师”，拥有圆顶结构专利",
+      "personality": null,
+      "gender": "男",
+      "faction": null,
+      "relationships": []
+    },
+    {
+      "name": "迈克",
+      "aliases": [],
+      "identity": "富爸爸的商业王国的继承者和管理者，正在培养自己的儿子接班",
+      "personality": null,
+      "gender": "男",
+      "faction": "富爸爸的商业王国",
+      "relationships": [
+        {"target": "富爸爸", "nature": "主仆/继承人"},
+        {"target": "儿子", "nature": "父子"}
+      ]
+    },
+    {
+      "name": "罗伯特·清崎",
+      "aliases": [],
+      "identity": "企业家、投资家，已于1994年（47岁）退休，通过资产实现了财务自由和退休",
+      "personality": null,
+      "gender": "男",
+      "faction": null,
+      "relationships": [
+        {"target": "莎伦·莱希特", "nature": "夫妻"}
+      ]
+    },
+    {
+      "name": "莎伦·莱希特",
+      "aliases": [],
+      "identity": "罗伯特·清崎的妻子，在1994年（37岁）时随丈夫退休",
+      "personality": null,
+      "gender": "女",
+      "faction": null,
+      "relationships": [
+        {"target": "罗伯特·清崎", "nature": "夫妻"}
+      ]
+    }
+  ],
+  "settings": [
+    {
+      "name": "收益表",
+      "type": "会计工具",
+      "description": "用于衡量收入和支出以及金钱流动方向的表格。"
+    },
+    {
+      "name": "资产负债表",
+      "type": "会计工具",
+      "description": "用于说明资产与负债情况的表格。"
+    },
+    {
+      "name": "共同基金",
+      "type": "金融产品",
+      "description": "一种被广泛认为风险较小、通过投资多个项目来分散风险的投资工具，受到中产阶级投资者的青睐。"
+    }
+  ],
+  "chapter_summary": "本章通过历史案例和现金流图表，阐述了掌握财务知识、理解资产与负债的区别对于获得财富和实现财务自由的重要性，并批判了“老鼠赛跑”式的中产阶级财务模式。"
+}

@@ -1,0 +1,79 @@
+{
+  "characters": [
+    {
+      "name": "理查德",
+      "aliases": [],
+      "identity": "罗伯特·清崎的朋友",
+      "personality": "犹豫不决，容易受他人影响",
+      "gender": "男",
+      "faction": null,
+      "relationships": [
+        {"target": "罗伯特·清崎", "nature": "朋友"}
+      ]
+    },
+    {
+      "name": "彼得·林奇",
+      "aliases": [],
+      "identity": "来自“忠诚马吉兰”共同基金的投资专家",
+      "personality": "智慧，提出投资“噪音”概念",
+      "gender": "男",
+      "faction": "忠诚马吉兰共同基金",
+      "relationships": []
+    },
+    {
+      "name": "弗朗·塔肯顿",
+      "aliases": [],
+      "identity": "美国职业橄榄球联赛的四分卫",
+      "personality": "勇敢，不害怕失败",
+      "gender": "男",
+      "faction": null,
+      "relationships": []
+    },
+    {
+      "name": "哈兰·桑德斯上校",
+      "aliases": ["桑德斯上校"],
+      "identity": "肯德基的创始人",
+      "personality": "勇敢、坚韧不拔",
+      "gender": "男",
+      "faction": "肯德基",
+      "relationships": []
+    },
+    {
+      "name": "埃莉诺·罗斯福",
+      "aliases": [],
+      "identity": "美国前第一夫人",
+      "personality": null,
+      "gender": "女",
+      "faction": null,
+      "relationships": []
+    }
+  ],
+  "settings": [
+    {
+      "name": "阿拉莫",
+      "type": "地点",
+      "description": "圣安东尼奥市的一个历史遗址，富爸爸提到阿拉莫的故事，象征勇气和面对失败。"
+    },
+    {
+      "name": "忠诚马吉兰共同基金",
+      "type": "组织",
+      "description": "彼得·林奇所属的共同基金，投资领域的知名基金。"
+    },
+    {
+      "name": "税收留置权",
+      "type": "体系",
+      "description": "一种投资工具，债权人因纳税人欠税而拥有的留置权，可获得16%利息。"
+    },
+    {
+      "name": "WII-FM电台",
+      "type": "体系",
+      "description": "电台频率被解释为“我还能得到什么”，用于激励克服懒惰。"
+    },
+    {
+      "name": "石油公司",
+      "type": "组织",
+      "description": "罗伯特·清崎投资的新成立石油公司，勘探新油田。"
+    }
+  ],
+  "chapter_summary": "本章阐述了财务自由之路上的五个主要障碍及其应对方法，通过故事和例子强调克服恐惧、愤世嫉俗、懒惰、不良习惯和自负的重要性。"
+}

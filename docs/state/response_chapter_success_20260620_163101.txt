@@ -1,0 +1,65 @@
+{
+  "characters": [
+    {
+      "name": "乔尔·莫斯科维茨",
+      "aliases": [],
+      "identity": null,
+      "personality": null,
+      "gender": "未知",
+      "faction": null,
+      "relationships": []
+    },
+    {
+      "name": "比尔·盖茨",
+      "aliases": [],
+      "identity": null,
+      "personality": null,
+      "gender": "男",
+      "faction": null,
+      "relationships": []
+    }
+  ],
+  "settings": [
+    {
+      "name": "书店",
+      "type": "地点",
+      "description": "作者搜寻投资书籍的地方"
+    },
+    {
+      "name": "律师事务所",
+      "type": "地点",
+      "description": "作者寻找廉价房地产交易机会的地方"
+    },
+    {
+      "name": "银行破产清偿部",
+      "type": "组织",
+      "description": "作者购买廉价房产的地方"
+    },
+    {
+      "name": "学习班",
+      "type": "组织",
+      "description": "作者参加的学习如何投资的课程"
+    },
+    {
+      "name": "辅导班",
+      "type": "组织",
+      "description": "作者参加的免费或收费的辅导班"
+    },
+    {
+      "name": "研讨班",
+      "type": "组织",
+      "description": "作者参加的很贵的研讨班"
+    },
+    {
+      "name": "非限制性贷款",
+      "type": "体系",
+      "description": "不需要工作、收入、财产担保就能申请到的贷款"
+    },
+    {
+      "name": "小型仓储库",
+      "type": "组织",
+      "description": "投资项目的地点"
+    }
+  ],
+  "chapter_summary": "本章中，罗伯特·清崎分享了他通过财商投资的具体行动步骤和案例，包括如何寻找投资机会、采取行动、以及一个用少量资金通过房地产投资积累财富支付大学费用的故事。"
+}

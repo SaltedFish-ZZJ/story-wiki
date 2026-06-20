@@ -1,0 +1,132 @@
+{
+  "characters": [
+    {
+      "name": "女记者",
+      "aliases": [],
+      "identity": "新加坡报纸记者，英语文学硕士",
+      "personality": "犀利且有条理，但固执于专业化",
+      "gender": "女",
+      "faction": null,
+      "relationships": [
+        {"target": "罗伯特·清崎", "nature": "其他"}
+      ]
+    },
+    {
+      "name": "金克拉",
+      "aliases": [],
+      "identity": "畅销书作家，演讲家",
+      "personality": null,
+      "gender": "男",
+      "faction": null,
+      "relationships": [
+        {"target": "罗伯特·清崎", "nature": "同事"}
+      ]
+    },
+    {
+      "name": "西里尔·布里克弗利克",
+      "aliases": [],
+      "identity": "美国退休者协会前会长",
+      "personality": null,
+      "gender": "男",
+      "faction": null,
+      "relationships": []
+    },
+    {
+      "name": "克莱格·卡佩尔",
+      "aliases": [],
+      "identity": "《退休的迷思》作者",
+      "personality": null,
+      "gender": "男",
+      "faction": null,
+      "relationships": []
+    },
+    {
+      "name": "汤姆·克鲁斯",
+      "aliases": [],
+      "identity": "电影演员",
+      "personality": null,
+      "gender": "男",
+      "faction": null,
+      "relationships": []
+    },
+    {
+      "name": "夏威夷的朋友（艺术家）",
+      "aliases": [],
+      "identity": "杰出的艺术家",
+      "personality": null,
+      "gender": "男",
+      "faction": null,
+      "relationships": [
+        {"target": "罗伯特·清崎", "nature": "朋友"}
+      ]
+    }
+  ],
+  "settings": [
+    {
+      "name": "新加坡",
+      "type": "地点",
+      "description": "罗伯特·清崎接受采访的地方"
+    },
+    {
+      "name": "加州标准石油公司",
+      "type": "公司",
+      "description": "罗伯特·清崎第一份工作的地方"
+    },
+    {
+      "name": "海军陆战队",
+      "type": "军事组织",
+      "description": "罗伯特·清崎加入学习飞行"
+    },
+    {
+      "name": "罗伯特·清崎的第一家公司",
+      "type": "公司",
+      "description": "生产尼龙和维可牢搭扣钱包"
+    },
+    {
+      "name": "网络营销公司",
+      "type": "商业组织",
+      "description": "提供销售培训的多级营销公司"
+    },
+    {
+      "name": "健康维护组织",
+      "type": "医疗机构",
+      "description": "医疗变化中医生成员的组织"
+    },
+    {
+      "name": "夏威夷教师工会",
+      "type": "组织",
+      "description": "穷爸爸成为负责人的工会"
+    },
+    {
+      "name": "《退休的迷思》",
+      "type": "书籍",
+      "description": "克莱格·卡佩尔写的书，分析退休金问题"
+    },
+    {
+      "name": "《甜心先生》",
+      "type": "电影",
+      "description": "汤姆·克鲁斯主演的电影"
+    },
+    {
+      "name": "401(k)计划",
+      "type": "金融体系",
+      "description": "退休金计划"
+    },
+    {
+      "name": "固定福利计划",
+      "type": "金融体系",
+      "description": "退休金计划"
+    },
+    {
+      "name": "洛克菲勒基金会",
+      "type": "组织",
+      "description": "慈善机构"
+    },
+    {
+      "name": "福特基金会",
+      "type": "组织",
+      "description": "慈善机构"
+    }
+  ],
+  "chapter_summary": "本章通过个人经历和例子，强调学习多技能尤其是销售和市场营销的重要性，以跳出“老鼠赛跑”陷阱。"
+}

@@ -1,0 +1,50 @@
+{
+  "characters": [
+    {
+      "name": "理查德",
+      "aliases": [],
+      "identity": "罗伯特·清崎的朋友",
+      "personality": null,
+      "gender": "男",
+      "faction": null,
+      "relationships": [
+        {"target": "罗伯特·清崎", "nature": "朋友"}
+      ]
+    },
+    {
+      "name": "哈兰·桑德斯",
+      "aliases": ["桑德斯上校"],
+      "identity": "肯德基创始人",
+      "personality": "勇敢、坚韧不拔",
+      "gender": "男",
+      "faction": null,
+      "relationships": []
+    },
+    {
+      "name": "彼得·林奇",
+      "aliases": [],
+      "identity": "投资家，来自“忠诚马吉兰”共同基金",
+      "personality": null,
+      "gender": "男",
+      "faction": null,
+      "relationships": []
+    },
+    {
+      "name": "弗朗·塔肯顿",
+      "aliases": [],
+      "identity": "前美国职业橄榄球联赛的四分卫",
+      "personality": null,
+      "gender": "男",
+      "faction": null,
+      "relationships": []
+    }
+  ],
+  "settings": [
+    {
+      "name": "税收留置权",
+      "type": "体系",
+      "description": "债权人按照合同约定占有债务人财产，在与该物有牵连关系的债权未受清偿前，有留置该财产，并就该财产有限受偿的权利。负有纳税义务的纳税人如有欠缴税款就自动成为政府的债务人，税收留置权随之产生直至他偿清税债为止。"
+    }
+  ],
+  "chapter_summary": "本章阐述了人们在追求财务自由时面临的心理障碍（如恐惧、愤世嫉俗、懒惰、不良习惯和傲慢），并提供了克服这些障碍的方法。"
+}

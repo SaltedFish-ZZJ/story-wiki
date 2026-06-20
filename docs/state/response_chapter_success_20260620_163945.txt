@@ -1,0 +1,102 @@
+{
+  "characters": [
+    {
+      "name": "彼得·林奇",
+      "aliases": [],
+      "identity": "投资家",
+      "personality": null,
+      "gender": "男",
+      "faction": null,
+      "relationships": [
+        {"target": "罗伯特·清崎", "nature": "偶像"}
+      ]
+    },
+    {
+      "name": "唐纳德·川普",
+      "aliases": [],
+      "identity": "投资家",
+      "personality": null,
+      "gender": "男",
+      "faction": null,
+      "relationships": [
+        {"target": "罗伯特·清崎", "nature": "偶像"}
+      ]
+    },
+    {
+      "name": "沃伦·巴菲特",
+      "aliases": [],
+      "identity": "投资家",
+      "personality": null,
+      "gender": "男",
+      "faction": null,
+      "relationships": [
+        {"target": "罗伯特·清崎", "nature": "偶像"}
+      ]
+    },
+    {
+      "name": "乔治·索罗斯",
+      "aliases": [],
+      "identity": "投资家",
+      "personality": null,
+      "gender": "男",
+      "faction": null,
+      "relationships": [
+        {"target": "罗伯特·清崎", "nature": "偶像"}
+      ]
+    },
+    {
+      "name": "吉姆·罗杰斯",
+      "aliases": [],
+      "identity": "投资家",
+      "personality": null,
+      "gender": "男",
+      "faction": null,
+      "relationships": [
+        {"target": "罗伯特·清崎", "nature": "偶像"}
+      ]
+    },
+    {
+      "name": "雷·克罗克",
+      "aliases": [],
+      "identity": "企业家，麦当劳创始人",
+      "personality": null,
+      "gender": "男",
+      "faction": null,
+      "relationships": []
+    },
+    {
+      "name": "乔治·克拉森",
+      "aliases": [],
+      "identity": "作者",
+      "personality": null,
+      "gender": "男",
+      "faction": null,
+      "relationships": [
+        {"target": "罗伯特·清崎", "nature": "作者"}
+      ]
+    }
+  ],
+  "settings": [
+    {
+      "name": "巴比伦",
+      "type": "地点/体系",
+      "description": "来自书籍《巴比伦最富有的人》的历史地点和概念，用于讲解理财原则"
+    },
+    {
+      "name": "华尔街日报",
+      "type": "媒体",
+      "description": "金融报纸，提供市场信息"
+    },
+    {
+      "name": "哥伦比亚广播公司",
+      "type": "媒体",
+      "description": "电视台，播出投资相关节目"
+    },
+    {
+      "name": "内线人员交易",
+      "type": "体系",
+      "description": "金融交易概念，指利用非公开信息进行交易，分为合法和非法形式"
+    }
+  ],
+  "chapter_summary": "本章介绍了唤醒理财天赋的10个步骤，包括精神力量、选择、教育、朋友、模式学习、自律、专业建议、投资回报、奢侈购买和给予。"
+}

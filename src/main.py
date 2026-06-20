@@ -14,7 +14,7 @@ from src.config import CHAPTER_THRESHOLD, CHAPTER_CHUNK_SIZE, VAULT_DIR
 from src.extractor import extract_text
 from src.analyzer import analyze_text
 from src.pipeline import analyze_chaptered, analyze_chaptered_incremental
-from src.generator import generate_vault
+from src.generator import generate_vault, generate_vault_incremental
 
 
 def main():
@@ -85,9 +85,9 @@ def main():
     # Step 2: AI 分析（自动判断是否分章）
     use_split = not args.no_split and len(text) > CHAPTER_THRESHOLD
 
-    if use_split:
-        if args.incremental:
-            print(f"[2/3] 文本较长（>{CHAPTER_THRESHOLD}字），启用增量分章分析...")
+    if args.incremental:
+        if use_split:
+            print(f"[2/3] 启用增量分章分析...")
             try:
                 analysis = analyze_chaptered_incremental(
                     text=text,
@@ -100,16 +100,33 @@ def main():
                 print(f"[错误] {e}")
                 sys.exit(1)
         else:
-            print(f"[2/3] 文本较长（>{CHAPTER_THRESHOLD}字），启用分章分析...")
+            print(f"[2/3] 启用增量分析...")
             try:
-                analysis = analyze_chaptered(
-                    text=text,
-                    title=args.title,
-                    chunk_size=args.chunk_size,
-                )
+                from src.pipeline import detect_existing_analysis, build_initial_context_for_incremental
+                existing = detect_existing_analysis(args.title)
+                if existing["exists"]:
+                    print(f"       检测到已有分析结果：{len(existing['characters'])} 人物, {len(existing['settings'])} 设定")
+                analysis = analyze_text(text, title=args.title)
+                # 合并新旧结果
+                from src.pipeline import merge_characters, merge_settings, merge_events
+                analysis["characters"] = merge_characters(existing["characters"], analysis.get("characters", []))
+                analysis["settings"] = merge_settings(existing["settings"], analysis.get("settings", []))
+                analysis["events"] = merge_events(existing["events"], analysis.get("events", []))
+                analysis["incremental"] = True
             except (ValueError, RuntimeError) as e:
                 print(f"[错误] {e}")
                 sys.exit(1)
+    elif use_split:
+        print(f"[2/3] 文本较长（>{CHAPTER_THRESHOLD}字），启用分章分析...")
+        try:
+            analysis = analyze_chaptered(
+                text=text,
+                title=args.title,
+                chunk_size=args.chunk_size,
+            )
+        except (ValueError, RuntimeError) as e:
+            print(f"[错误] {e}")
+            sys.exit(1)
     else:
         print(f"[2/3] 正在调用 AI 分析...")
         try:
@@ -136,7 +153,10 @@ def main():
     output_dir = Path(args.output) if args.output else VAULT_DIR
     print(f"[3/3] 生成 Obsidian 笔记到: {output_dir}")
     try:
-        files = generate_vault(analysis, output_dir)
+        if args.incremental or analysis.get("incremental"):
+            files = generate_vault_incremental(analysis, output_dir)
+        else:
+            files = generate_vault(analysis, output_dir)
     except Exception as e:
         print(f"[错误] 生成笔记失败: {e}")
         sys.exit(1)

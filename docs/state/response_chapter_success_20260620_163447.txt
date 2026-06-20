@@ -1,0 +1,49 @@
+{
+  "characters": [
+    {
+      "name": "雷·克罗克",
+      "aliases": [],
+      "identity": "麦当劳的创始人",
+      "personality": null,
+      "gender": "男",
+      "faction": null,
+      "relationships": [
+        {
+          "target": "基思·坎宁安",
+          "nature": "其他"
+        }
+      ]
+    },
+    {
+      "name": "基思·坎宁安",
+      "aliases": [],
+      "identity": "MBA学生，罗伯特·清崎的好朋友",
+      "personality": null,
+      "gender": "男",
+      "faction": null,
+      "relationships": [
+        {
+          "target": "雷·克罗克",
+          "nature": "其他"
+        },
+        {
+          "target": "罗伯特·清崎",
+          "nature": "朋友"
+        }
+      ]
+    }
+  ],
+  "settings": [
+    {
+      "name": "麦当劳的房地产业务",
+      "type": "组织",
+      "description": "麦当劳拥有并经营大量房地产，是世界上最大的独立房地产商之一。"
+    },
+    {
+      "name": "得克萨斯州立大学奥斯汀分校",
+      "type": "地点",
+      "description": "雷·克罗克在1974年发表演讲的大学。"
+    }
+  ],
+  "chapter_summary": "本章通过雷·克罗克的故事阐述了关注自己的事业的重要性，强调资产与负债的区别，鼓励建立自己的资产项以实现财务安全。"
+}

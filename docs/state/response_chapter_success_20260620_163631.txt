@@ -1,0 +1,206 @@
+{
+  "characters": [
+    {
+      "name": "亚历山大·格雷厄姆·贝尔",
+      "aliases": [],
+      "identity": "发明家",
+      "personality": null,
+      "gender": "男",
+      "faction": null,
+      "relationships": [
+        {"target": "西部联合公司", "nature": "敌对"}
+      ]
+    },
+    {
+      "name": "西部联合公司老总",
+      "aliases": [],
+      "identity": "公司老总",
+      "personality": "嘲笑贝尔",
+      "gender": "男",
+      "faction": "西部联合公司",
+      "relationships": [
+        {"target": "亚历山大·格雷厄姆·贝尔", "nature": "敌对"}
+      ]
+    },
+    {
+      "name": "比尔·盖茨",
+      "aliases": [],
+      "identity": "企业家",
+      "personality": null,
+      "gender": "男",
+      "faction": "微软",
+      "relationships": []
+    },
+    {
+      "name": "离婚女士",
+      "aliases": [],
+      "identity": "寻求投资知识的女士",
+      "personality": "沮丧、愤怒",
+      "gender": "女",
+      "faction": null,
+      "relationships": [
+        {"target": "罗伯特·清崎", "nature": "学生"}
+      ]
+    },
+    {
+      "name": "带女士来的朋友",
+      "aliases": [],
+      "identity": "罗伯特·清崎的朋友",
+      "personality": null,
+      "gender": "未知",
+      "faction": null,
+      "relationships": [
+        {"target": "罗伯特·清崎", "nature": "朋友"},
+        {"target": "离婚女士", "nature": "朋友"}
+      ]
+    },
+    {
+      "name": "财务规划师",
+      "aliases": [],
+      "identity": "财务规划师",
+      "personality": null,
+      "gender": "未知",
+      "faction": null,
+      "relationships": []
+    },
+    {
+      "name": "教授",
+      "aliases": [],
+      "identity": "大学教授",
+      "personality": null,
+      "gender": "未知",
+      "faction": null,
+      "relationships": [
+        {"target": "罗伯特·清崎", "nature": "房客"}
+      ]
+    },
+    {
+      "name": "房子主人",
+      "aliases": [],
+      "identity": "房产卖家",
+      "personality": "苦笑",
+      "gender": "未知",
+      "faction": null,
+      "relationships": [
+        {"target": "罗伯特·清崎", "nature": "交易方"}
+      ]
+    },
+    {
+      "name": "加利福尼亚州年轻夫妇",
+      "aliases": [],
+      "identity": "房产买家",
+      "personality": null,
+      "gender": "未知",
+      "faction": null,
+      "relationships": [
+        {"target": "罗伯特·清崎", "nature": "交易方"}
+      ]
+    },
+    {
+      "name": "公寓主人",
+      "aliases": [],
+      "identity": "房产卖家",
+      "personality": null,
+      "gender": "未知",
+      "faction": null,
+      "relationships": [
+        {"target": "罗伯特·清崎", "nature": "交易方"}
+      ]
+    },
+    {
+      "name": "科罗拉多州投资者",
+      "aliases": [],
+      "identity": "潜在买家",
+      "personality": null,
+      "gender": "未知",
+      "faction": null,
+      "relationships": [
+        {"target": "罗伯特·清崎", "nature": "交易方"}
+      ]
+    },
+    {
+      "name": "买鬼屋的朋友",
+      "aliases": [],
+      "identity": "投资者",
+      "personality": null,
+      "gender": "未知",
+      "faction": null,
+      "relationships": [
+        {"target": "罗伯特·清崎", "nature": "朋友"}
+      ]
+    },
+    {
+      "name": "股票投资朋友",
+      "aliases": [],
+      "identity": "投资顾问",
+      "personality": null,
+      "gender": "未知",
+      "faction": null,
+      "relationships": [
+        {"target": "罗伯特·清崎", "nature": "朋友"}
+      ]
+    },
+    {
+      "name": "罗伯特·清崎",
+      "aliases": [],
+      "identity": "企业家、投资家、教师",
+      "personality": "重视财商教育、善于投资、鼓励冒险",
+      "gender": "男",
+      "faction": null,
+      "relationships": []
+    }
+  ],
+  "settings": [
+    {
+      "name": "西部联合公司",
+      "type": "组织",
+      "description": "当时的巨无霸公司，拒绝了贝尔的专利"
+    },
+    {
+      "name": "美国电报电话公司",
+      "type": "组织",
+      "description": "由贝尔的专利发展而来的数十亿美元企业"
+    },
+    {
+      "name": "电视节目《早安美国》",
+      "type": "媒体",
+      "description": "作者观看的电视节目，有财务规划师出现"
+    },
+    {
+      "name": "破产事务律师办公室",
+      "type": "地点",
+      "description": "作者进行房地产交易的地方"
+    },
+    {
+      "name": "法院",
+      "type": "地点",
+      "description": "作者进行房地产交易的地方"
+    },
+    {
+      "name": "契约和产权调查公司",
+      "type": "组织",
+      "description": "负责处理房产交易的公司"
+    },
+    {
+      "name": "承兑汇票",
+      "type": "体系",
+      "description": "一种金融工具，承诺将来付款"
+    },
+    {
+      "name": "投资信托",
+      "type": "组织",
+      "description": "管理投资的组织"
+    },
+    {
+      "name": "股票交易所",
+      "type": "组织",
+      "description": "股票交易的场所"
+    },
+    {
+      "name": "房地产投资信托",
+      "type": "组织",
+      "description": "投资房地产的金融组织"
+    }
+  ],
+  "chapter_summary": "本章通过亚历山大·格雷厄姆·贝尔的故事和作者的投资经历，强调财商教育的重要性，并分享如何通过投资策略和财务知识创造财富。"
+}

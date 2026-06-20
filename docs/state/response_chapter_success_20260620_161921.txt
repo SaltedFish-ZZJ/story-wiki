@@ -1,0 +1,53 @@
+{
+  "characters": [
+    {
+      "name": "莎伦·莱希特",
+      "aliases": [],
+      "identity": "母亲、注册会计师",
+      "personality": "关心孩子教育，寻求新方法，有财务知识",
+      "gender": "女",
+      "faction": "无特定势力",
+      "relationships": [
+        {"target": "迈克尔·莱希特", "nature": "夫妻"},
+        {"target": "罗伯特·清崎", "nature": "朋友、合著者"}
+      ]
+    },
+    {
+      "name": "迈克尔·莱希特",
+      "aliases": [],
+      "identity": "专利律师",
+      "personality": "支持妻子，有职业道德",
+      "gender": "男",
+      "faction": "律师事务所",
+      "relationships": [
+        {"target": "莎伦·莱希特", "nature": "夫妻"},
+        {"target": "罗伯特·清崎", "nature": "朋友"}
+      ]
+    },
+    {
+      "name": "罗伯特·清崎",
+      "aliases": [],
+      "identity": "企业家、投资家",
+      "personality": "关心财务教育，白手起家，有远见",
+      "gender": "男",
+      "faction": "无特定势力",
+      "relationships": [
+        {"target": "莎伦·莱希特", "nature": "朋友、合著者"},
+        {"target": "迈克尔·莱希特", "nature": "朋友"}
+      ]
+    }
+  ],
+  "settings": [
+    {
+      "name": "现金流游戏",
+      "type": "体系/教育产品",
+      "description": "一种类似‘大富翁’的教育游戏，用于教授财务知识，帮助跳出‘老鼠赛跑’"
+    },
+    {
+      "name": "传统教育体系",
+      "type": "体系",
+      "description": "强调学习、找安稳工作的教育模式，但缺乏财务知识"
+    }
+  ],
+  "chapter_summary": "本章讲述了莎伦·莱希特作为母亲和会计师，对传统教育体系的不满，通过罗伯特·清崎的‘现金流’游戏，认识到财务教育的重要性，并决定合著一本书来推广新思想。"
+}

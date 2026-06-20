@@ -1,0 +1,176 @@
+{
+  "title": "红楼梦",
+  "characters": [
+    {
+      "name": "林黛玉",
+      "aliases": [],
+      "identity": "贾母的外孙女，贾府亲戚",
+      "personality": "敏感多愁",
+      "gender": "女",
+      "faction": "贾府",
+      "related_settings": ["贾府", "大观园", "潇湘馆"],
+      "relationships": [
+        {"target": "贾宝玉", "nature": "其他"},
+        {"target": "薛宝钗", "nature": "其他"}
+      ]
+    },
+    {
+      "name": "贾宝玉",
+      "aliases": [],
+      "identity": "贾政之子，贾府少爷",
+      "personality": "厌恶仕途经济，喜文厌武",
+      "gender": "男",
+      "faction": "贾府",
+      "related_settings": ["贾府", "大观园", "怡红院"],
+      "relationships": [
+        {"target": "林黛玉", "nature": "其他"},
+        {"target": "薛宝钗", "nature": "其他"},
+        {"target": "贾政", "nature": "父子"},
+        {"target": "袭人", "nature": "主仆"},
+        {"target": "晴雯", "nature": "主仆"}
+      ]
+    },
+    {
+      "name": "薛宝钗",
+      "aliases": [],
+      "identity": "贾府亲戚，与黛玉并称金陵十二钗",
+      "personality": "性情温和，深得人心",
+      "gender": "女",
+      "faction": "贾府",
+      "related_settings": ["贾府", "大观园", "蘅芜苑"],
+      "relationships": [
+        {"target": "林黛玉", "nature": "其他"},
+        {"target": "贾宝玉", "nature": "其他"}
+      ]
+    },
+    {
+      "name": "王熙凤",
+      "aliases": ["凤辣子"],
+      "identity": "贾琏之妻，掌管贾府家务",
+      "personality": "精明能干，口齿伶俐",
+      "gender": "女",
+      "faction": "贾府",
+      "related_settings": ["贾府"],
+      "relationships": [
+        {"target": "贾琏", "nature": "夫妻"},
+        {"target": "贾母", "nature": "其他"}
+      ]
+    },
+    {
+      "name": "贾政",
+      "aliases": [],
+      "identity": "宝玉之父",
+      "personality": "严肃古板",
+      "gender": "男",
+      "faction": "贾府",
+      "related_settings": ["贾府"],
+      "relationships": [
+        {"target": "贾宝玉", "nature": "父子"}
+      ]
+    },
+    {
+      "name": "袭人",
+      "aliases": [],
+      "identity": "宝玉身边的大丫鬟",
+      "personality": "忠心耿耿，温顺",
+      "gender": "女",
+      "faction": "贾府",
+      "related_settings": ["贾府", "怡红院"],
+      "relationships": [
+        {"target": "贾宝玉", "nature": "主仆"}
+      ]
+    },
+    {
+      "name": "晴雯",
+      "aliases": [],
+      "identity": "宝玉房中的丫鬟",
+      "personality": "性格刚烈",
+      "gender": "女",
+      "faction": "贾府",
+      "related_settings": ["贾府", "怡红院"],
+      "relationships": [
+        {"target": "贾宝玉", "nature": "主仆"}
+      ]
+    }
+  ],
+  "settings": [
+    {
+      "name": "贾府",
+      "type": "地点",
+      "description": "贾府是故事发生的主要府邸",
+      "related_characters": ["林黛玉", "贾宝玉", "薛宝钗", "王熙凤", "贾政", "袭人", "晴雯"],
+      "related_settings": ["大观园"]
+    },
+    {
+      "name": "大观园",
+      "type": "地点",
+      "description": "贾府为元春省亲而修建的园林，后宝玉和众姐妹入住",
+      "related_characters": ["林黛玉", "贾宝玉", "薛宝钗", "袭人", "晴雯"],
+      "related_settings": ["贾府", "潇湘馆", "蘅芜苑", "怡红院"]
+    },
+    {
+      "name": "潇湘馆",
+      "type": "地点",
+      "description": "黛玉的住所",
+      "related_characters": ["林黛玉"],
+      "related_settings": ["大观园"]
+    },
+    {
+      "name": "蘅芜苑",
+      "type": "地点",
+      "description": "宝钗的住所",
+      "related_characters": ["薛宝钗"],
+      "related_settings": ["大观园"]
+    },
+    {
+      "name": "怡红院",
+      "type": "地点",
+      "description": "宝玉的住所",
+      "related_characters": ["贾宝玉", "袭人", "晴雯"],
+      "related_settings": ["大观园"]
+    }
+  ],
+  "events": [
+    {
+      "name": "黛玉进贾府",
+      "time": null,
+      "participants": ["林黛玉", "贾宝玉", "贾母"],
+      "location": "贾府",
+      "description": "林黛玉被接入贾府，初次见到贾宝玉。",
+      "cause": null
+    },
+    {
+      "name": "宝玉摔玉",
+      "time": null,
+      "participants": ["贾宝玉", "林黛玉"],
+      "location": "贾府",
+      "description": "贾宝玉因林黛玉没有玉而发怒摔玉，众人大惊。",
+      "cause": ["黛玉进贾府"]
+    },
+    {
+      "name": "宝钗进贾府",
+      "time": null,
+      "participants": ["薛宝钗"],
+      "location": "贾府",
+      "description": "薛宝钗进入贾府生活，与黛玉并称金陵十二钗。",
+      "cause": null
+    },
+    {
+      "name": "修建大观园",
+      "time": null,
+      "participants": ["元春"],
+      "location": "贾府",
+      "description": "贾府为元春省亲修建大观园。",
+      "cause": null
+    },
+    {
+      "name": "入住大观园",
+      "time": null,
+      "participants": ["贾宝玉", "林黛玉", "薛宝钗"],
+      "location": "大观园",
+      "description": "贾宝玉和众姐妹搬入大观园居住。",
+      "cause": ["修建大观园"]
+    }
+  ],
+  "summary": "介绍《红楼梦》中贾府的主要人物及其关系，以及关键事件如黛玉进府、宝玉摔玉和大观园的修建与入住。"
+}

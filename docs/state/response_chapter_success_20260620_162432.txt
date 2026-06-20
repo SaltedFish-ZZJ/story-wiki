@@ -1,0 +1,61 @@
+{
+  "characters": [
+    {
+      "name": "凯文·科斯特纳",
+      "aliases": [],
+      "identity": "好莱坞影星",
+      "personality": null,
+      "gender": "男",
+      "faction": null,
+      "relationships": []
+    },
+    {
+      "name": "约翰·肯尼迪",
+      "aliases": [],
+      "identity": "美国总统",
+      "personality": null,
+      "gender": "男",
+      "faction": "美国政府",
+      "relationships": [
+        {"target": "罗伯特的穷爸爸", "nature": "崇拜"}
+      ]
+    },
+    {
+      "name": "罗宾汉",
+      "aliases": [],
+      "identity": "传奇绿林好汉",
+      "personality": null,
+      "gender": "男",
+      "faction": null,
+      "relationships": []
+    }
+  ],
+  "settings": [
+    {
+      "name": "公司",
+      "type": "组织",
+      "description": "法律实体，富人利用其避税和保护财富"
+    },
+    {
+      "name": "和平队计划",
+      "type": "组织",
+      "description": "美国政府派遣志愿者到发展中国家服务的计划"
+    },
+    {
+      "name": "《国内收入法》第1031款",
+      "type": "体系",
+      "description": "允许延迟纳税的房地产交易税收优惠条款"
+    },
+    {
+      "name": "财商",
+      "type": "体系",
+      "description": "由会计、投资、了解市场和法律构成的理财能力"
+    },
+    {
+      "name": "房地产投资",
+      "type": "体系",
+      "description": "投资房地产以产生收入和避税的资产类别"
+    }
+  ],
+  "chapter_summary": "本章探讨了税收历史、公司的力量以及财务知识的重要性，强调富人通过公司避税和合法手段积累财富。"
+}

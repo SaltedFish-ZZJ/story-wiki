@@ -217,7 +217,7 @@ def merge_events(existing: list, new_items: list) -> list:
             old = by_name[name]
             # 合并 participants（并集）
             old["participants"] = list(set(
-                old.get("participants", []) + e.get("participants", [])
+                (old.get("participants") or []) + (e.get("participants") or [])
             ))
             # 取更长的 description
             old_desc = old.get("description") or ""
@@ -226,7 +226,7 @@ def merge_events(existing: list, new_items: list) -> list:
                 old["description"] = new_desc
             # 合并 cause（并集）
             old["cause"] = list(set(
-                old.get("cause", []) + e.get("cause", [])
+                (old.get("cause") or []) + (e.get("cause") or [])
             ))
             # 取 time（如果原来没有）
             if not old.get("time") and e.get("time"):

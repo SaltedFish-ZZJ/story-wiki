@@ -1,0 +1,28 @@
+{
+  "characters": [
+    {
+      "name": "富爸爸",
+      "aliases": [],
+      "identity": "夏威夷最富有的人之一，罗伯特·清崎的富爸爸",
+      "personality": "意志坚强、富有魅力、具有影响力，重视理财能力，反对依赖政府，认为金钱就是力量",
+      "gender": "男",
+      "faction": null,
+      "relationships": [
+        {"target": "罗伯特·清崎", "nature": "父子"}
+      ]
+    },
+    {
+      "name": "穷爸爸",
+      "aliases": [],
+      "identity": "罗伯特·清崎的穷爸爸，拥有博士头衔，受过良好教育但财务挣扎",
+      "personality": "意志坚强、富有魅力、具有影响力，但理财能力弱，依赖政府和公司",
+      "gender": "男",
+      "faction": null,
+      "relationships": [
+        {"target": "罗伯特·清崎", "nature": "父子"}
+      ]
+    }
+  ],
+  "settings": [],
+  "chapter_summary": "本章通过对比富爸爸和穷爸爸的金钱观念，介绍了作者罗伯特·清崎选择听从富爸爸建议开始学习理财的过程。"
+}

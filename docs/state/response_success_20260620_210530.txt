@@ -1,0 +1,183 @@
+{
+  "title": null,
+  "characters": [
+    {
+      "name": "林黛玉",
+      "aliases": [],
+      "identity": "贾府外孙女",
+      "personality": "敏感多愁",
+      "gender": "女",
+      "faction": "贾府",
+      "related_settings": ["贾府", "潇湘馆", "金陵十二钗"],
+      "relationships": [
+        {"target": "贾宝玉", "nature": "其他"},
+        {"target": "贾母", "nature": "其他"}
+      ]
+    },
+    {
+      "name": "贾宝玉",
+      "aliases": [],
+      "identity": "贾府公子",
+      "personality": "厌恶仕途经济，喜欢吟诗作对",
+      "gender": "男",
+      "faction": "贾府",
+      "related_settings": ["贾府", "怡红院", "大观园", "金陵十二钗"],
+      "relationships": [
+        {"target": "林黛玉", "nature": "其他"},
+        {"target": "薛宝钗", "nature": "其他"},
+        {"target": "贾政", "nature": "父子"},
+        {"target": "袭人", "nature": "主仆"},
+        {"target": "晴雯", "nature": "主仆"}
+      ]
+    },
+    {
+      "name": "薛宝钗",
+      "aliases": [],
+      "identity": "薛家女儿，贾府亲戚",
+      "personality": "性情温和，深得人心",
+      "gender": "女",
+      "faction": "贾府",
+      "related_settings": ["贾府", "蘅芜苑", "金陵十二钗"],
+      "relationships": [
+        {"target": "贾宝玉", "nature": "其他"},
+        {"target": "林黛玉", "nature": "其他"}
+      ]
+    },
+    {
+      "name": "王熙凤",
+      "aliases": ["凤辣子"],
+      "identity": "贾琏之妻，掌管贾府家务",
+      "personality": "精明能干，口齿伶俐",
+      "gender": "女",
+      "faction": "贾府",
+      "related_settings": ["贾府"],
+      "relationships": [
+        {"target": "贾琏", "nature": "夫妻"},
+        {"target": "贾母", "nature": "其他"}
+      ]
+    },
+    {
+      "name": "贾政",
+      "aliases": [],
+      "identity": "宝玉之父，贾府官员",
+      "personality": "严肃古板",
+      "gender": "男",
+      "faction": "贾府",
+      "related_settings": ["贾府"],
+      "relationships": [
+        {"target": "贾宝玉", "nature": "父子"}
+      ]
+    },
+    {
+      "name": "袭人",
+      "aliases": [],
+      "identity": "宝玉身边的大丫鬟",
+      "personality": "忠心耿耿，温顺",
+      "gender": "女",
+      "faction": "贾府",
+      "related_settings": ["贾府", "怡红院"],
+      "relationships": [
+        {"target": "贾宝玉", "nature": "主仆"}
+      ]
+    },
+    {
+      "name": "晴雯",
+      "aliases": [],
+      "identity": "宝玉房中的丫鬟",
+      "personality": "性格刚烈",
+      "gender": "女",
+      "faction": "贾府",
+      "related_settings": ["贾府", "怡红院"],
+      "relationships": [
+        {"target": "贾宝玉", "nature": "主仆"}
+      ]
+    }
+  ],
+  "settings": [
+    {
+      "name": "贾府",
+      "type": "组织",
+      "description": "贾府是一个大家族",
+      "related_characters": ["林黛玉", "贾宝玉", "薛宝钗", "王熙凤", "贾政", "袭人", "晴雯"],
+      "related_settings": ["大观园"]
+    },
+    {
+      "name": "大观园",
+      "type": "地点",
+      "description": "贾府为元春省亲而修建的园林",
+      "related_characters": ["贾宝玉", "林黛玉", "薛宝钗"],
+      "related_settings": ["贾府", "潇湘馆", "蘅芜苑", "怡红院"]
+    },
+    {
+      "name": "潇湘馆",
+      "type": "地点",
+      "description": "林黛玉的住所",
+      "related_characters": ["林黛玉"],
+      "related_settings": ["大观园"]
+    },
+    {
+      "name": "蘅芜苑",
+      "type": "地点",
+      "description": "薛宝钗的住所",
+      "related_characters": ["薛宝钗"],
+      "related_settings": ["大观园"]
+    },
+    {
+      "name": "怡红院",
+      "type": "地点",
+      "description": "贾宝玉的住所",
+      "related_characters": ["贾宝玉", "袭人", "晴雯"],
+      "related_settings": ["大观园"]
+    },
+    {
+      "name": "金陵十二钗",
+      "type": "体系",
+      "description": "林黛玉与薛宝钗并称金陵十二钗",
+      "related_characters": ["林黛玉", "薛宝钗"],
+      "related_settings": []
+    }
+  ],
+  "events": [
+    {
+      "name": "宝黛初见",
+      "time": null,
+      "participants": ["林黛玉", "贾宝玉"],
+      "location": "贾府",
+      "description": "林黛玉初入贾府，见到表哥贾宝玉，宝玉觉得似曾相识。",
+      "cause": []
+    },
+    {
+      "name": "宝玉摔玉",
+      "time": null,
+      "participants": ["贾宝玉", "林黛玉"],
+      "location": "贾府",
+      "description": "宝玉因黛玉没有玉而发怒摔玉，众人大惊。",
+      "cause": []
+    },
+    {
+      "name": "宝钗进府",
+      "time": null,
+      "participants": ["薛宝钗"],
+      "location": "贾府",
+      "description": "薛宝钗后来也进了贾府。",
+      "cause": []
+    },
+    {
+      "name": "金玉良缘",
+      "time": null,
+      "participants": ["贾宝玉", "薛宝钗"],
+      "location": "贾府",
+      "description": "宝玉与宝钗有金玉良缘之说，但心中只有黛玉。",
+      "cause": []
+    },
+    {
+      "name": "父子紧张",
+      "time": null,
+      "participants": ["贾宝玉", "贾政"],
+      "location": "贾府",
+      "description": "贾政期望宝玉读书科举，宝玉厌恶仕途经济，父子关系紧张。",
+      "cause": []
+    }
+  ],
+  "summary": "文本描述了林黛玉初入贾府，与贾宝玉等人互动，以及贾府中的人物关系和居住环境。"
+}

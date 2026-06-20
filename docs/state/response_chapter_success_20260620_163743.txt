@@ -1,0 +1,5 @@
+{
+  "characters": [],
+  "settings": [],
+  "chapter_summary": "本章是作品的开端部分。"
+}

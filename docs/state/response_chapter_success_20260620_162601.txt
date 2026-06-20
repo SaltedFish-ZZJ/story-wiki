@@ -1,0 +1,48 @@
+{
+  "characters": [
+    {
+      "name": "亚历山大·格雷厄姆·贝尔",
+      "aliases": [],
+      "identity": "发明家",
+      "personality": null,
+      "gender": "男",
+      "faction": null,
+      "relationships": [
+        {"target": "西部联合公司", "nature": "推销者"}
+      ]
+    }
+  ],
+  "settings": [
+    {
+      "name": "西部联合公司",
+      "type": "组织",
+      "description": "电话公司前身"
+    },
+    {
+      "name": "美国电报电话公司",
+      "type": "组织",
+      "description": "电话公司"
+    },
+    {
+      "name": "契约和产权调查公司",
+      "type": "组织",
+      "description": "处理房产交易的法律公司"
+    },
+    {
+      "name": "比佛顿市的英特尔工厂",
+      "type": "地点/组织",
+      "description": "英特尔公司的工厂"
+    },
+    {
+      "name": "凤凰城的房地产市场",
+      "type": "地点",
+      "description": "房地产市场"
+    },
+    {
+      "name": "俄勒冈州的房地产市场",
+      "type": "地点",
+      "description": "房地产市场"
+    }
+  ],
+  "chapter_summary": "本章通过故事和例子强调提高财商的重要性，并展示如何通过房地产投资创造财富。"
+}

@@ -1,0 +1,5 @@
+{
+  "characters": [],
+  "settings": [],
+  "chapter_summary": "本章内容为开始行动。"
+}

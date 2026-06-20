@@ -1,0 +1,63 @@
+{
+  "characters": [
+    {
+      "name": "雷·克罗克",
+      "aliases": [],
+      "identity": "麦当劳的创始人",
+      "personality": "幽默、自信",
+      "gender": "男",
+      "faction": null,
+      "relationships": []
+    },
+    {
+      "name": "基思·坎宁安",
+      "aliases": [],
+      "identity": "罗伯特的好朋友，MBA学生，现在经营洗车房",
+      "personality": null,
+      "gender": "男",
+      "faction": null,
+      "relationships": [
+        {"target": "罗伯特·清崎", "nature": "朋友"}
+      ]
+    },
+    {
+      "name": "罗伯特的妻子",
+      "aliases": [],
+      "identity": "罗伯特的妻子",
+      "personality": null,
+      "gender": "女",
+      "faction": null,
+      "relationships": [
+        {"target": "罗伯特·清崎", "nature": "夫妻"}
+      ]
+    }
+  ],
+  "settings": [
+    {
+      "name": "收益表和资产负债表",
+      "type": "体系",
+      "description": "用于描述个人财务状况的财务报表，展示收入、支出、资产和负债。"
+    },
+    {
+      "name": "信贷申请表",
+      "type": "体系",
+      "description": "银行用于评估贷款申请的文件，涉及信贷评估体系。"
+    },
+    {
+      "name": "加利福尼亚标准石油公司",
+      "type": "组织",
+      "description": "罗伯特曾工作过的石油公司。"
+    },
+    {
+      "name": "美国海军陆战队",
+      "type": "组织",
+      "description": "罗伯特曾服役的军事组织。"
+    },
+    {
+      "name": "施乐公司",
+      "type": "组织",
+      "description": "罗伯特曾工作过的科技公司。"
+    }
+  ],
+  "chapter_summary": "本章通过雷·克罗克的例子，阐述了职业与事业的区别，强调关注自己的事业即构建资产项的重要性，以实现财务安全。"
+}

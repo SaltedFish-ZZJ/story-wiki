@@ -1,0 +1,107 @@
+{
+  "title": "富爸爸穷爸爸",
+  "characters": [
+    {
+      "name": "罗伯特·清崎",
+      "aliases": [],
+      "identity": "企业家、投资家、作者",
+      "personality": "聪明、有创业精神、学习能力强",
+      "gender": "男",
+      "faction": null,
+      "relationships": [
+        {"target": "富爸爸", "nature": "师徒"},
+        {"target": "穷爸爸", "nature": "父子"}
+      ]
+    },
+    {
+      "name": "莎伦·莱希特",
+      "aliases": [],
+      "identity": "合著者、注册会计师、母亲",
+      "personality": "关心教育、有责任心",
+      "gender": "女",
+      "faction": null,
+      "relationships": [
+        {"target": "迈克尔·莱希特", "nature": "夫妻"}
+      ]
+    },
+    {
+      "name": "迈克尔·莱希特",
+      "aliases": [],
+      "identity": "专利律师",
+      "personality": "工作努力、专业",
+      "gender": "男",
+      "faction": null,
+      "relationships": [
+        {"target": "莎伦·莱希特", "nature": "夫妻"}
+      ]
+    },
+    {
+      "name": "富爸爸",
+      "aliases": [],
+      "identity": "迈克的爸爸、企业家、投资者",
+      "personality": "智慧、慷慨、善于教导",
+      "gender": "男",
+      "faction": "商业",
+      "relationships": [
+        {"target": "迈克", "nature": "父子"},
+        {"target": "罗伯特·清崎", "nature": "师徒"}
+      ]
+    },
+    {
+      "name": "穷爸爸",
+      "aliases": [],
+      "identity": "罗伯特的爸爸、教育家、政府官员",
+      "personality": "重视教育、传统、财务挣扎",
+      "gender": "男",
+      "faction": "教育/政府",
+      "relationships": [
+        {"target": "罗伯特·清崎", "nature": "父子"}
+      ]
+    },
+    {
+      "name": "迈克",
+      "aliases": [],
+      "identity": "富爸爸的儿子、企业家",
+      "personality": "接班人、企业家",
+      "gender": "男",
+      "faction": "商业",
+      "relationships": [
+        {"target": "富爸爸", "nature": "父子"}
+      ]
+    },
+    {
+      "name": "马丁夫人",
+      "aliases": [],
+      "identity": "超市员工、监工",
+      "personality": "慈祥、耐心",
+      "gender": "女",
+      "faction": null,
+      "relationships": [
+        {"target": "富爸爸", "nature": "其他"}
+      ]
+    }
+  ],
+  "settings": [
+    {
+      "name": "学校",
+      "type": "教育体系",
+      "description": "传统教育机构，强调学术成绩但忽视财务教育。"
+    },
+    {
+      "name": "施乐公司",
+      "type": "公司",
+      "description": "罗伯特·清崎曾工作的销售公司，学习销售技能。"
+    },
+    {
+      "name": "海军陆战队",
+      "type": "军队",
+      "description": "罗伯特·清崎服役的军事组织，学习领导才能。"
+    },
+    {
+      "name": "现金流游戏",
+      "type": "游戏",
+      "description": "富爸爸设计的教育游戏，用于教授财务知识和投资概念。"
+    }
+  ],
+  "summary": "文本通过罗伯特·清崎的个人经历和富爸爸的教导，阐述了财务知识的重要性，如何区分资产和负债，以及实现财务自由的途径。"
+}

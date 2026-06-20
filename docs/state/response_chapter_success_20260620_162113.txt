@@ -1,0 +1,49 @@
+{
+  "characters": [
+    {
+      "name": "罗伯特·清崎",
+      "aliases": [],
+      "identity": "学生、叙述者",
+      "personality": "好奇、爱思考、善于比较、最终选择富爸爸的财商教育",
+      "gender": "男",
+      "faction": null,
+      "relationships": [
+        {"target": "罗伯特的富爸爸", "nature": "父子"},
+        {"target": "罗伯特的穷爸爸", "nature": "父子"}
+      ]
+    },
+    {
+      "name": "罗伯特的富爸爸",
+      "aliases": [],
+      "identity": "财务导师、企业家",
+      "personality": "坚强、富有魅力、重视财商、积极解决问题、强调让钱为工作",
+      "gender": "男",
+      "faction": null,
+      "relationships": [
+        {"target": "罗伯特·清崎", "nature": "父子"}
+      ]
+    },
+    {
+      "name": "罗伯特的穷爸爸",
+      "aliases": [],
+      "identity": "夏威夷州教育厅厅长、受过高等教育",
+      "personality": "坚强、富有魅力、强调学术教育、对金钱持保守态度、习惯逃避财务问题",
+      "gender": "男",
+      "faction": null,
+      "relationships": [
+        {"target": "罗伯特·清崎", "nature": "父子"}
+      ]
+    },
+    {
+      "name": "罗伯特·弗罗斯特",
+      "aliases": [],
+      "identity": "诗人",
+      "personality": null,
+      "gender": "男",
+      "faction": null,
+      "relationships": []
+    }
+  ],
+  "settings": [],
+  "chapter_summary": "本章介绍了罗伯特·清崎有两个财务观念不同的父亲，他选择了富爸爸的财商教育。"
+}

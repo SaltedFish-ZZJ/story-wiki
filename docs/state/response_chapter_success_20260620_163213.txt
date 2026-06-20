@@ -1,0 +1,84 @@
+{
+  "characters": [
+    {
+      "name": "莎伦·莱希特",
+      "aliases": [],
+      "identity": "会计师、母亲、本书合著者",
+      "personality": "关心孩子教育、怀疑传统教育、寻求新方法",
+      "gender": "女",
+      "faction": null,
+      "relationships": [
+        {"target": "迈克尔", "nature": "夫妻"},
+        {"target": "女儿", "nature": "母女"},
+        {"target": "儿子", "nature": "母子"},
+        {"target": "罗伯特·清崎", "nature": "朋友/合作伙伴"}
+      ]
+    },
+    {
+      "name": "迈克尔",
+      "aliases": [],
+      "identity": "莎伦的丈夫，工程师和律师",
+      "personality": "努力工作、职业道德",
+      "gender": "男",
+      "faction": null,
+      "relationships": [
+        {"target": "莎伦·莱希特", "nature": "夫妻"},
+        {"target": "罗伯特·清崎", "nature": "朋友/介绍人"}
+      ]
+    },
+    {
+      "name": "罗伯特·清崎",
+      "aliases": [],
+      "identity": "企业家、投资家，'现金流'游戏开发者",
+      "personality": "自学成材、白手起家、关心财务教育",
+      "gender": "男",
+      "faction": null,
+      "relationships": [
+        {"target": "迈克尔", "nature": "朋友"},
+        {"target": "莎伦·莱希特", "nature": "朋友/合作伙伴"}
+      ]
+    },
+    {
+      "name": "女儿",
+      "aliases": [],
+      "identity": "莎伦的女儿，大学一年级学生",
+      "personality": "聪明、有强烈自我意识、有礼貌",
+      "gender": "女",
+      "faction": null,
+      "relationships": [
+        {"target": "莎伦·莱希特", "nature": "母女"},
+        {"target": "迈克尔", "nature": "父女"}
+      ]
+    },
+    {
+      "name": "儿子",
+      "aliases": [],
+      "identity": "莎伦的儿子，高中生",
+      "personality": "聪明、有强烈自我意识、有礼貌",
+      "gender": "男",
+      "faction": null,
+      "relationships": [
+        {"target": "莎伦·莱希特", "nature": "母子"},
+        {"target": "迈克尔", "nature": "父子"}
+      ]
+    }
+  ],
+  "settings": [
+    {
+      "name": "现金流游戏",
+      "type": "教育产品/游戏",
+      "description": "罗伯特·清崎开发的教育游戏，用于教授财务知识，游戏板类似'大富翁'，包含'老鼠赛跑'和'快车道'路径。"
+    },
+    {
+      "name": "老鼠赛跑",
+      "type": "生活路径/概念",
+      "description": "代表大多数人遵循的传统教育和工作路径，努力学习、找工作、赚钱、花钱，陷入财务陷阱。"
+    },
+    {
+      "name": "快车道",
+      "type": "生活路径/概念",
+      "description": "游戏中富人生活的路径，与'老鼠赛跑'相对，代表财务自由和不同规则。"
+    }
+  ],
+  "chapter_summary": "莎伦·莱希特作为会计师和母亲，质疑传统教育体系，通过罗伯特·清崎的'现金流'游戏认识到财务教育的重要性，决定帮助推广这种新教育方式。"
+}

@@ -1,0 +1,136 @@
+{
+  "title": "红楼梦",
+  "characters": [
+    {
+      "name": "林黛玉",
+      "aliases": [],
+      "identity": "贾母外孙女",
+      "personality": "敏感多愁",
+      "gender": "女",
+      "faction": "金陵十二钗",
+      "relationships": [
+        {"target": "贾母", "nature": "祖孙"},
+        {"target": "贾宝玉", "nature": "恋人"},
+        {"target": "薛宝钗", "nature": "朋友"}
+      ]
+    },
+    {
+      "name": "贾宝玉",
+      "aliases": [],
+      "identity": "贾政之子",
+      "personality": "厌恶仕途经济，愿与姐妹吟诗作对",
+      "gender": "男",
+      "faction": "贾府",
+      "relationships": [
+        {"target": "林黛玉", "nature": "恋人"},
+        {"target": "薛宝钗", "nature": "朋友"},
+        {"target": "贾政", "nature": "父子"},
+        {"target": "袭人", "nature": "主仆"},
+        {"target": "晴雯", "nature": "主仆"}
+      ]
+    },
+    {
+      "name": "薛宝钗",
+      "aliases": [],
+      "identity": "金陵十二钗之一",
+      "personality": "性情温和，深得人心",
+      "gender": "女",
+      "faction": "金陵十二钗",
+      "relationships": [
+        {"target": "林黛玉", "nature": "朋友"},
+        {"target": "贾宝玉", "nature": "朋友"}
+      ]
+    },
+    {
+      "name": "王熙凤",
+      "aliases": ["凤辣子"],
+      "identity": "贾琏之妻，掌管贾府家务",
+      "personality": "精明能干，口齿伶俐",
+      "gender": "女",
+      "faction": "贾府",
+      "relationships": [
+        {"target": "贾母", "nature": "祖孙"},
+        {"target": "贾琏", "nature": "夫妻"}
+      ]
+    },
+    {
+      "name": "贾政",
+      "aliases": [],
+      "identity": "宝玉之父",
+      "personality": "严肃古板，期望宝玉读书科举",
+      "gender": "男",
+      "faction": "贾府",
+      "relationships": [
+        {"target": "贾宝玉", "nature": "父子"}
+      ]
+    },
+    {
+      "name": "袭人",
+      "aliases": [],
+      "identity": "宝玉身边的大丫鬟",
+      "personality": "忠心耿耿，温顺",
+      "gender": "女",
+      "faction": "贾府",
+      "relationships": [
+        {"target": "贾宝玉", "nature": "主仆"}
+      ]
+    },
+    {
+      "name": "晴雯",
+      "aliases": [],
+      "identity": "宝玉房中的丫鬟",
+      "personality": "性格刚烈",
+      "gender": "女",
+      "faction": "贾府",
+      "relationships": [
+        {"target": "贾宝玉", "nature": "主仆"}
+      ]
+    },
+    {
+      "name": "贾母",
+      "aliases": [],
+      "identity": "林黛玉外祖母",
+      "personality": null,
+      "gender": "女",
+      "faction": "贾府",
+      "relationships": [
+        {"target": "林黛玉", "nature": "祖孙"},
+        {"target": "王熙凤", "nature": "祖孙"}
+      ]
+    },
+    {
+      "name": "贾琏",
+      "aliases": [],
+      "identity": "王熙凤之夫",
+      "personality": null,
+      "gender": "男",
+      "faction": "贾府",
+      "relationships": [
+        {"target": "王熙凤", "nature": "夫妻"}
+      ]
+    }
+  ],
+  "settings": [
+    {
+      "name": "大观园",
+      "type": "地点",
+      "description": "贾府为元春省亲而修建的园林，后来宝玉和众姐妹都搬入园中居住"
+    },
+    {
+      "name": "潇湘馆",
+      "type": "地点",
+      "description": "林黛玉的住所"
+    },
+    {
+      "name": "蘅芜苑",
+      "type": "地点",
+      "description": "薛宝钗的住所"
+    },
+    {
+      "name": "怡红院",
+      "type": "地点",
+      "description": "贾宝玉的住所"
+    }
+  ],
+  "summary": "林黛玉初入贾府，与贾宝玉相识，薛宝钗后来也进入贾府，与黛玉、宝玉等人共同生活在大观园中，展现了贾府内部的人物关系和性格冲突。"
+}

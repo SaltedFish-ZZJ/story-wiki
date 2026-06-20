@@ -50,6 +50,8 @@ CHAPTER_PATTERNS = [
 DEFAULT_CHUNK_SIZE = 5000
 # 每块最小字数（避免碎片）
 MIN_CHUNK_SIZE = 1000
+# 模式匹配章节最小字数（过短视为碎片，归入相邻章节）
+MIN_CHAPTER_CHARS = 200
 
 
 def split_chapters(text: str, chunk_size: int = DEFAULT_CHUNK_SIZE) -> list[Chapter]:
@@ -78,51 +80,134 @@ def split_chapters(text: str, chunk_size: int = DEFAULT_CHUNK_SIZE) -> list[Chap
     return _split_by_chunks(text, chunk_size)
 
 
+def _parse_chinese_number(cn_str: str) -> int:
+    """将中文数字字符串转为整数，如 '十二' → 12, '一百零三' → 103。"""
+    cn_map = {
+        '零': 0, '〇': 0,
+        '一': 1, '二': 2, '三': 3, '四': 4, '五': 5,
+        '六': 6, '七': 7, '八': 8, '九': 9, '十': 10,
+        '百': 100, '千': 1000, '万': 10000,
+    }
+    result = 0
+    current = 0
+    for ch in cn_str:
+        if ch not in cn_map:
+            continue
+        val = cn_map[ch]
+        if val >= 10:
+            if current == 0:
+                current = 1
+            result += current * val
+            current = 0
+        else:
+            current = current * 10 + val
+    return result + current
+
+
+def _extract_chapter_number(title: str) -> int:
+    """
+    从章节标题中提取数字序号，用于排序。
+    例如 "第十章 xxx" → 10, "第2回 xxx" → 2, "Chapter 5" → 5
+    返回 0 表示无法提取。
+    """
+    # 阿拉伯数字
+    m = re.search(r'\d+', title)
+    if m:
+        return int(m.group())
+
+    # 中文数字（第 和 回/章/节 之间）
+    m = re.search(r'第([一二三四五六七八九十百千万零〇]+)', title)
+    if m:
+        return _parse_chinese_number(m.group(1))
+
+    return 0
+
+
+def _extract_chapter_at(text: str, match, next_match) -> Chapter | None:
+    """从单个正则匹配中提取一个章节，返回 None 表示跳过（碎片）。"""
+    start = match.start()
+    # 章节正文从标题行结束（换行符后）开始
+    title_line_end = text.find('\n', start)
+    if title_line_end == -1:
+        title_line_end = start
+    else:
+        title_line_end += 1
+
+    title = text[start:title_line_end].strip()
+    end = next_match.start() if next_match else len(text)
+    chapter_text = text[title_line_end:end].strip()
+
+    # 跳过空章节或过短的碎片章节
+    if len(chapter_text) < MIN_CHAPTER_CHARS:
+        return None
+
+    return Chapter(index=0, title=title, text=chapter_text)
+
+
+def _try_pattern(text: str, pattern) -> list[Chapter]:
+    """尝试用一个模式切分章节，返回排序后的章节列表（可能为空）。"""
+    matches = list(pattern.finditer(text))
+    if len(matches) < 2:
+        return []
+
+    chapters = []
+    for i, match in enumerate(matches):
+        next_match = matches[i + 1] if i + 1 < len(matches) else None
+        ch = _extract_chapter_at(text, match, next_match)
+        if ch:
+            chapters.append(ch)
+
+    if not chapters:
+        return []
+
+    # 按章节标题中的数字排序（解决 "第10章" 排在 "第1章" 前面的问题）
+    chapters.sort(key=lambda ch: _extract_chapter_number(ch.title))
+    for i, ch in enumerate(chapters):
+        ch.index = i + 1
+    return chapters
+
+
 def _split_by_pattern(text: str) -> list[Chapter]:
     """
     尝试用各种章节模式匹配，返回切分结果。
     如果匹配到的章节数 < 2，视为无效匹配（可能是误匹配），返回空。
     """
     for pattern in CHAPTER_PATTERNS:
-        matches = list(pattern.finditer(text))
-        if len(matches) < 2:
-            continue  # 匹配太少，尝试下一个模式
-
-        chapters = []
-        for i, match in enumerate(matches):
-            start = match.start()
-            # 章节正文从标题行结束（换行符后）开始
-            title_line_end = text.find('\n', start)
-            if title_line_end == -1:
-                title_line_end = start
-            else:
-                title_line_end += 1
-
-            # 章节标题（去除首尾空白）
-            title = text[start:title_line_end].strip()
-
-            # 章节正文：从标题行结束到下一个标题开始
-            if i + 1 < len(matches):
-                end = matches[i + 1].start()
-            else:
-                end = len(text)
-
-            chapter_text = text[title_line_end:end].strip()
-
-            # 跳过空章节
-            if not chapter_text:
-                continue
-
-            chapters.append(Chapter(
-                index=len(chapters) + 1,
-                title=title,
-                text=chapter_text,
-            ))
-
-        if chapters:
-            return chapters
-
+        result = _try_pattern(text, pattern)
+        if result:
+            return result
     return []
+
+
+def _para_title(para: str) -> str:
+    """用段落前 30 字作为标题。"""
+    short = para[:30].replace('\n', ' ')
+    return short + ("..." if len(para) > 30 else "")
+
+
+def _should_flush(current_text: str, para: str, chunk_size: int) -> bool:
+    """判断当前块是否应该保存并开始新块。"""
+    if not current_text:
+        return False
+    if len(current_text) + len(para) <= chunk_size:
+        return False
+    return len(current_text) >= MIN_CHUNK_SIZE
+
+
+def _flush_block(chapters: list, current_text: str, current_title: str) -> Chapter:
+    """保存当前块为一个章节。"""
+    return Chapter(
+        index=len(chapters) + 1,
+        title=current_title or f"第{len(chapters) + 1}部分",
+        text=current_text.strip(),
+    )
+
+
+def _append_para(current_text: str, current_title: str, para: str) -> tuple[str, str]:
+    """将段落追加到当前块，返回 (new_text, new_title)。"""
+    if not current_text:
+        return para, _para_title(para)
+    return current_text + "\n\n" + para, current_title
 
 
 def _split_by_chunks(text: str, chunk_size: int) -> list[Chapter]:
@@ -143,30 +228,16 @@ def _split_by_chunks(text: str, chunk_size: int) -> list[Chapter]:
         if not para:
             continue
 
-        # 如果当前块加上这段会超限，且当前块已经够长
-        if current_text and len(current_text) + len(para) > chunk_size and len(current_text) >= MIN_CHUNK_SIZE:
-            # 保存当前块
-            chapters.append(Chapter(
-                index=len(chapters) + 1,
-                title=current_title or f"第{len(chapters) + 1}部分",
-                text=current_text.strip(),
-            ))
+        if _should_flush(current_text, para, chunk_size):
+            chapters.append(_flush_block(chapters, current_text, current_title))
             current_text = para
-            # 用段落前 30 字作为标题
-            current_title = para[:30].replace('\n', ' ') + ("..." if len(para) > 30 else "")
+            current_title = _para_title(para)
         else:
-            if not current_text:
-                # 用段落前 30 字作为标题
-                current_title = para[:30].replace('\n', ' ') + ("..." if len(para) > 30 else "")
-            current_text += ("\n\n" + para if current_text else para)
+            current_text, current_title = _append_para(current_text, current_title, para)
 
     # 最后一块
     if current_text.strip():
-        chapters.append(Chapter(
-            index=len(chapters) + 1,
-            title=current_title or f"第{len(chapters) + 1}部分",
-            text=current_text.strip(),
-        ))
+        chapters.append(_flush_block(chapters, current_text, current_title))
 
     # 重新编号（确保连续）
     for i, ch in enumerate(chapters):

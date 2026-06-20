@@ -1,0 +1,5 @@
+{
+  "characters": [],
+  "settings": [],
+  "chapter_summary": "本章是结束语，讨论如何用7000美元支付孩子的大学费用。"
+}

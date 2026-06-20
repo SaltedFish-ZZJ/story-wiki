@@ -1,0 +1,343 @@
+{
+  "characters": [
+    {
+      "name": "女运动员（奥运会梦想）",
+      "aliases": [],
+      "identity": "梦想代表美国参加奥运会的女运动员",
+      "personality": "有牺牲精神，每天早起训练",
+      "gender": "女",
+      "faction": "运动员",
+      "relationships": []
+    },
+    {
+      "name": "失窃的富女士",
+      "aliases": [],
+      "identity": "公寓失窃的富有女士",
+      "personality": null,
+      "gender": "女",
+      "faction": "富人",
+      "relationships": []
+    },
+    {
+      "name": "乔治·克拉森",
+      "aliases": [],
+      "identity": "《巴比伦最富有的人》作者",
+      "personality": null,
+      "gender": "男",
+      "faction": "作家",
+      "relationships": []
+    },
+    {
+      "name": "唐纳德·川普",
+      "aliases": [],
+      "identity": "投资家",
+      "personality": null,
+      "gender": "男",
+      "faction": "投资家",
+      "relationships": []
+    },
+    {
+      "name": "沃伦·巴菲特",
+      "aliases": [],
+      "identity": "投资家",
+      "personality": null,
+      "gender": "男",
+      "faction": "投资家",
+      "relationships": []
+    },
+    {
+      "name": "乔治·索罗斯",
+      "aliases": [],
+      "identity": "投资家",
+      "personality": null,
+      "gender": "男",
+      "faction": "投资家",
+      "relationships": []
+    },
+    {
+      "name": "吉姆·罗杰斯",
+      "aliases": [],
+      "identity": "投资家",
+      "personality": null,
+      "gender": "男",
+      "faction": "投资家",
+      "relationships": []
+    },
+    {
+      "name": "威利·梅斯",
+      "aliases": [],
+      "identity": "棒球运动员",
+      "personality": null,
+      "gender": "男",
+      "faction": "运动员",
+      "relationships": []
+    },
+    {
+      "name": "汉克·阿龙",
+      "aliases": [],
+      "identity": "棒球运动员",
+      "personality": null,
+      "gender": "男",
+      "faction": "运动员",
+      "relationships": []
+    },
+    {
+      "name": "约吉·贝拉",
+      "aliases": [],
+      "identity": "棒球运动员",
+      "personality": null,
+      "gender": "男",
+      "faction": "运动员",
+      "relationships": []
+    },
+    {
+      "name": "迈克尔·乔丹",
+      "aliases": [],
+      "identity": "篮球运动员",
+      "personality": null,
+      "gender": "男",
+      "faction": "运动员",
+      "relationships": []
+    },
+    {
+      "name": "查尔斯·巴克利",
+      "aliases": [],
+      "identity": "篮球运动员",
+      "personality": null,
+      "gender": "男",
+      "faction": "运动员",
+      "relationships": []
+    },
+    {
+      "name": "克莱德·德雷克斯勒",
+      "aliases": [],
+      "identity": "篮球运动员",
+      "personality": null,
+      "gender": "男",
+      "faction": "运动员",
+      "relationships": []
+    },
+    {
+      "name": "辛普森",
+      "aliases": [],
+      "identity": "美式橄榄球运动员",
+      "personality": null,
+      "gender": "男",
+      "faction": "运动员",
+      "relationships": []
+    },
+    {
+      "name": "彼得·雅各布森",
+      "aliases": [],
+      "identity": "高尔夫球大师",
+      "personality": null,
+      "gender": "男",
+      "faction": "运动员",
+      "relationships": []
+    },
+    {
+      "name": "弗雷德·库普勒斯",
+      "aliases": [],
+      "identity": "高尔夫球大师",
+      "personality": null,
+      "gender": "男",
+      "faction": "运动员",
+      "relationships": []
+    },
+    {
+      "name": "泰格尔·伍兹",
+      "aliases": [],
+      "identity": "高尔夫球大师",
+      "personality": null,
+      "gender": "男",
+      "faction": "运动员",
+      "relationships": []
+    },
+    {
+      "name": "朋友（养车例子）",
+      "aliases": [],
+      "identity": "罗伯特的朋友，孩子的父亲",
+      "personality": null,
+      "gender": "男",
+      "faction": "其他",
+      "relationships": [
+        {"target": "朋友的儿子（养车例子）", "nature": "父子"}
+      ]
+    },
+    {
+      "name": "朋友的儿子（养车例子）",
+      "aliases": [],
+      "identity": "养车例子中的孩子",
+      "personality": null,
+      "gender": "男",
+      "faction": "其他",
+      "relationships": [
+        {"target": "朋友（养车例子）", "nature": "父子"}
+      ]
+    },
+    {
+      "name": "秘鲁金矿工人",
+      "aliases": [],
+      "identity": "工作了45年的金矿工人",
+      "personality": null,
+      "gender": "男",
+      "faction": "其他",
+      "relationships": []
+    },
+    {
+      "name": "罗伯特·清崎",
+      "aliases": [],
+      "identity": "企业家、投资家、财务自由实践者",
+      "personality": "勤奋、有财商、善于学习",
+      "gender": "男",
+      "faction": "企业家/投资家",
+      "relationships": [
+        {"target": "罗伯特的富爸爸", "nature": "师徒"},
+        {"target": "罗伯特的穷爸爸", "nature": "父子"},
+        {"target": "迈克", "nature": "朋友"},
+        {"target": "罗伯特的妻子", "nature": "夫妻"}
+      ]
+    },
+    {
+      "name": "罗伯特的富爸爸",
+      "aliases": [],
+      "identity": "罗伯特的富有父亲，教财务知识",
+      "personality": "智慧、理财导师",
+      "gender": "男",
+      "faction": "其他",
+      "relationships": [
+        {"target": "罗伯特·清崎", "nature": "师徒"}
+      ]
+    },
+    {
+      "name": "罗伯特的穷爸爸",
+      "aliases": [],
+      "identity": "罗伯特的亲生父亲，夏威夷州教育厅厅长",
+      "personality": "努力工作但财务不佳",
+      "gender": "男",
+      "faction": "其他",
+      "relationships": [
+        {"target": "罗伯特·清崎", "nature": "父子"}
+      ]
+    },
+    {
+      "name": "迈克",
+      "aliases": [],
+      "identity": "罗伯特的朋友，穷孩子",
+      "personality": null,
+      "gender": "男",
+      "faction": "穷孩子群体",
+      "relationships": [
+        {"target": "罗伯特·清崎", "nature": "朋友"},
+        {"target": "迈克的妹妹", "nature": "兄妹"}
+      ]
+    },
+    {
+      "name": "彼得·林奇",
+      "aliases": [],
+      "identity": "投资家，来自“忠诚马吉兰”共同基金",
+      "personality": null,
+      "gender": "男",
+      "faction": "投资家",
+      "relationships": []
+    },
+    {
+      "name": "雷·克罗克",
+      "aliases": [],
+      "identity": "麦当劳的创始人",
+      "personality": null,
+      "gender": "男",
+      "faction": "企业家",
+      "relationships": []
+    },
+    {
+      "name": "约翰·肯尼迪",
+      "aliases": [],
+      "identity": "美国总统",
+      "personality": null,
+      "gender": "男",
+      "faction": "美国政府",
+      "relationships": []
+    },
+    {
+      "name": "罗宾汉",
+      "aliases": [],
+      "identity": "传奇绿林好汉",
+      "personality": null,
+      "gender": "男",
+      "faction": "传奇人物",
+      "relationships": []
+    },
+    {
+      "name": "亚历山大·格雷厄姆·贝尔",
+      "aliases": [],
+      "identity": "发明家",
+      "personality": null,
+      "gender": "男",
+      "faction": "发明家",
+      "relationships": []
+    }
+  ],
+  "settings": [
+    {
+      "name": "《巴比伦最富有的人》一书",
+      "type": "体系",
+      "description": "一本关于理财的经典书籍，强调“首先支付自己”的原则"
+    },
+    {
+      "name": "破产房地产研讨班",
+      "type": "组织",
+      "description": "周末研讨班，教授如何购买破产的房地产"
+    },
+    {
+      "name": "金融衍生产品交易商辅导班",
+      "type": "组织",
+      "description": "为金融衍生产品交易商举办的辅导班"
+    },
+    {
+      "name": "商品期权交易商辅导班",
+      "type": "组织",
+      "description": "为商品期权交易商举办的辅导班"
+    },
+    {
+      "name": "初学者学习班",
+      "type": "组织",
+      "description": "为初学者举办的学习班"
+    },
+    {
+      "name": "华尔街日报",
+      "type": "组织",
+      "description": "一份著名的财经报纸"
+    },
+    {
+      "name": "哥伦比亚广播公司（CBS）",
+      "type": "组织",
+      "description": "电视网络，提供投资信息节目"
+    },
+    {
+      "name": "海军特种部队",
+      "type": "组织",
+      "description": "美国海军特种部队，用于约束自己"
+    },
+    {
+      "name": "宗教团体",
+      "type": "组织",
+      "description": "宗教团体，用于约束自己"
+    },
+    {
+      "name": "内华达州企业",
+      "type": "组织",
+      "description": "罗伯特在内华达州投资的企业"
+    },
+    {
+      "name": "亚利桑那州房产",
+      "type": "地点",
+      "description": "罗伯特投资的度假屋房产"
+    },
+    {
+      "name": "内线人员交易",
+      "type": "体系",
+      "description": "利用非公开信息进行交易，分为非法和合法形式"
+    }
+  ],
+  "chapter_summary": "本章介绍了

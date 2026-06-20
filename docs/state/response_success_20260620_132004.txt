@@ -1,0 +1,96 @@
+{
+  "title": "富爸爸穷爸爸",
+  "characters": [
+    {
+      "name": "罗伯特·清崎",
+      "aliases": ["罗伯特"],
+      "identity": "企业家、投资家、畅销书作家",
+      "personality": "善于思考、勇于实践、注重财商教育",
+      "gender": "男",
+      "faction": "富人阵营",
+      "relationships": [
+        {"target": "富爸爸", "nature": "师徒"},
+        {"target": "穷爸爸", "nature": "父子"},
+        {"target": "迈克", "nature": "朋友"},
+        {"target": "莎伦·莱希特", "nature": "合著者"}
+      ]
+    },
+    {
+      "name": "富爸爸",
+      "aliases": ["迈克的爸爸"],
+      "identity": "企业家、投资家，夏威夷最富有的人之一",
+      "personality": "意志坚强、富有魅力、注重实践、鼓励思考",
+      "gender": "男",
+      "faction": "富人阵营",
+      "relationships": [
+        {"target": "罗伯特·清崎", "nature": "师徒"},
+        {"target": "迈克", "nature": "父子"},
+        {"target": "穷爸爸", "nature": "其他"}
+      ]
+    },
+    {
+      "name": "穷爸爸",
+      "aliases": ["罗伯特的亲生父亲"],
+      "identity": "夏威夷州教育厅厅长，受过良好教育",
+      "personality": "意志坚强、富有魅力、注重学历和稳定工作",
+      "gender": "男",
+      "faction": "中产阶级/政府雇员",
+      "relationships": [
+        {"target": "罗伯特·清崎", "nature": "父子"},
+        {"target": "富爸爸", "nature": "其他"}
+      ]
+    },
+    {
+      "name": "迈克",
+      "aliases": [],
+      "identity": "罗伯特的好朋友，富爸爸的儿子",
+      "personality": "聪明、有合作精神",
+      "gender": "男",
+      "faction": "富人阵营",
+      "relationships": [
+        {"target": "罗伯特·清崎", "nature": "朋友"},
+        {"target": "富爸爸", "nature": "父子"}
+      ]
+    },
+    {
+      "name": "莎伦·莱希特",
+      "aliases": [],
+      "identity": "会计师、母亲、本书合著者",
+      "personality": "关心孩子教育、注重财商",
+      "gender": "女",
+      "faction": "中产阶级/教育者",
+      "relationships": [
+        {"target": "罗伯特·清崎", "nature": "合著者"}
+      ]
+    },
+    {
+      "name": "马丁夫人",
+      "aliases": ["马丁太太"],
+      "identity": "富爸爸小超市的雇员",
+      "personality": "慈祥、耐心、工作努力",
+      "gender": "女",
+      "faction": "雇员",
+      "relationships": [
+        {"target": "富爸爸", "nature": "雇佣"}
+      ]
+    }
+  ],
+  "settings": [
+    {
+      "name": "老鼠赛跑",
+      "type": "体系",
+      "description": "描述大多数人为了支付账单而不断工作、陷入财务困境的循环模式"
+    },
+    {
+      "name": "快车道",
+      "type": "体系",
+      "description": "富人通过资产投资实现财务自由的道路"
+    },
+    {
+      "name": "现金流游戏",
+      "type": "体系",
+      "description": "罗伯特·清崎开发的教育游戏，用于教授财务知识和投资技巧"
+    }
+  ],
+  "summary": "本书通过作者罗伯特·清崎的两位父亲——富爸爸和穷爸爸的对比，阐述了财务知识的重要性，教导读者如何区分资产和负债，并学习让钱为自己工作，从而实现财务自由。"
+}
