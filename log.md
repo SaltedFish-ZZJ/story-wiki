@@ -4,7 +4,28 @@
 
 ---
 
-## 2026-06-20 — Phase 1 最小 Demo 完成
+## 2026-06-20 — v0.1.1 配置优化 + 交互式 Agent
+
+### 变更
+- ✅ 上下文限制提升：8000字 → 40万字（适配 DeepSeek 1M 上下文）
+- ✅ 输出 token 提升：4096 → 8192
+- ✅ 新增交互式分析 Agent（src/agent.py）
+- ✅ 支持文件路径输入和直接文本粘贴
+- ✅ 内置 /help /list /vault /quit 命令
+
+### 交互式 Agent 功能
+```bash
+python src/agent.py
+# 启动后：
+#   输入文件路径 → 自动读取并分析
+#   直接粘贴长文本 → 自动分析
+#   /list → 列出已分析作品
+#   /quit → 退出
+```
+
+---
+
+## 2026-06-20 — v0.1.0 Phase 1 最小 Demo 完成
 
 ### 里程碑
 - ✅ 项目文档骨架搭建完成（AGENTS.md、README.md、docs/）
@@ -29,10 +50,15 @@ src/
 ├── extractor.py   ← 文本读取（txt）
 ├── analyzer.py    ← DeepSeek API 调用 + JSON 解析
 ├── generator.py   ← Obsidian Markdown 生成
-└── main.py        ← CLI 入口
+├── main.py        ← CLI 入口（单次分析）
+└── agent.py       ← 交互式分析 Agent（循环对话）
 ```
 
 ### 使用方式
 ```bash
+# 单次分析
 python src/main.py --input data/input/xxx.txt --title "作品名"
+
+# 交互式 Agent
+python src/agent.py
 ```

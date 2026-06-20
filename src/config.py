@@ -40,9 +40,9 @@ INPUT_DIR = DATA_DIR / "input"
 STATE_DIR = DATA_DIR / "state"
 
 # ── 分析参数 ──
-MAX_TEXT_LENGTH = 8000       # Demo 阶段单次最大文本量（字符）
+MAX_TEXT_LENGTH = 400000     # DeepSeek 1M上下文，留余量设40万字（约40-80万token）
 TEMPERATURE = 0.3            # 低温度，输出更稳定
-MAX_TOKENS = 4096            # 最大输出 token
+MAX_TOKENS = 8192            # 最大输出 token（增加以容纳更多人物/设定）
 
 # ── 确保必要目录存在 ──
 def ensure_dirs():
