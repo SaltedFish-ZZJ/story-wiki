@@ -39,7 +39,7 @@ def generate_vault(analysis: dict, output_dir: Path = None) -> list[str]:
     generated_files = []
 
     for char in characters:
-        generated_files.append(str(_write_character_card(char, char_dir, title)))
+        generated_files.append(str(_write_character_card(char, char_dir, title, events)))
 
     for setting in settings:
         generated_files.append(str(_write_setting_card(setting, setting_dir, title)))
@@ -74,10 +74,148 @@ def _today() -> str:
     return datetime.now().strftime("%Y-%m-%d")
 
 
+# ── 状态图标映射 ──────────────────────────────────────────────
+
+_STATUS_ICONS = {
+    "活跃": "🟢",
+    "已故": "⚫",
+    "失踪": "🔴",
+    "退场": "🟡",
+    "未知": "⚪",
+}
+
+
+def _build_status_bar(char: dict) -> list[str]:
+    """
+    构建人物状态栏。
+    格式：> 🟢 活跃 | 阵营：荣国府 | 定位：主角 · 女主
+    """
+    status = char.get("status") or "未知"
+    icon = _STATUS_ICONS.get(status, "⚪")
+    faction = char.get("faction") or ""
+    role_tags = char.get("role_tags") or []
+
+    parts = [f"{icon} {status}"]
+    if faction:
+        parts.append(f"阵营：{faction}")
+    if role_tags:
+        parts.append(f"定位：{' · '.join(role_tags)}")
+
+    return ["> " + " | ".join(parts), ""]
+
+
+def _build_setting_status_bar(setting: dict, related_chars: list) -> list[str]:
+    """
+    构建设定状态栏。
+    格式：> 类型：地点 | 关联人物：6
+    """
+    stype = setting.get("type") or setting.get("setting_type") or "其他"
+    char_count = len(related_chars) if related_chars else 0
+
+    parts = [f"类型：{stype}"]
+    if char_count > 0:
+        parts.append(f"关联人物：{char_count}")
+
+    return ["> " + " | ".join(parts), ""]
+
+
+def _build_event_status_bar(event: dict) -> list[str]:
+    """
+    构建事件状态栏。
+    格式：> 📍 大观园 | 👥 5人参与 | 🔗 前置：2个事件
+    """
+    location = event.get("location") or ""
+    participants = event.get("participants") or []
+    cause = event.get("cause") or []
+
+    parts = []
+    if location:
+        parts.append(f"📍 {location}")
+    if participants:
+        parts.append(f"👥 {len(participants)}人参与")
+    if cause:
+        parts.append(f"🔗 前置：{len(cause)}个事件")
+
+    if not parts:
+        return []
+    return ["> " + " | ".join(parts), ""]
+
+
+def _build_achievements(char_name: str, events: list) -> list[str]:
+    """
+    构建人物高光时刻列表。
+    从 events 中筛选该人物参与的事件。
+    """
+    if not events:
+        return []
+
+    char_events = [
+        e for e in events
+        if char_name in (e.get("participants") or [])
+    ]
+
+    if not char_events:
+        return []
+
+    lines = ["## 🏆 高光时刻"]
+    for e in char_events[:8]:  # 最多显示 8 个
+        name = e.get("name", "未知")
+        desc = e.get("description") or ""
+        # 截断过长描述
+        if len(desc) > 30:
+            desc = desc[:30] + "..."
+        lines.append(f"- [[events/{name}|{name}]] — {desc}")
+    lines.append("")
+    return lines
+
+
+def _build_quotes_section(char: dict) -> list[str]:
+    """
+    构建语录区域。
+    """
+    quotes = char.get("quotes") or []
+    if not quotes:
+        return []
+
+    lines = ["## 💬 经典语录"]
+    for q in quotes[:5]:  # 最多显示 5 条
+        lines.append(f'> "{q}"')
+    lines.append("")
+    return lines
+
+
+def _build_character_mermaid(char: dict) -> list[str]:
+    """
+    构建人物关系子图（Mermaid）。
+    只展示该人物的直接关系，最多 8 条。
+    """
+    name = char.get("name", "")
+    relationships = char.get("relationships") or []
+
+    if not relationships or not name:
+        return []
+
+    lines = ["## 🕸️ 关系网", "", "```mermaid", "graph LR"]
+
+    # 只取前 8 条关系
+    for r in relationships[:8]:
+        target = r.get("target", "")
+        nature = r.get("nature", "")
+        if not target:
+            continue
+        a_id = _safe_filename(name)
+        b_id = _safe_filename(target)
+        lines.append(f'    {a_id}["{name}"] -- "{nature}" --> {b_id}["{target}"]')
+
+    lines.append("```")
+    lines.append("")
+    return lines
+
+
 # ── 人物卡片 ──────────────────────────────────────────────────
 
-def _write_character_card(char: dict, char_dir: Path, origin: str) -> Path:
-    """生成单个人物卡片 .md 文件，包含人际关系和关联设定链接。"""
+def _write_character_card(char: dict, char_dir: Path, origin: str, events: list = None) -> Path:
+    """生成单个人物卡片 .md 文件，包含状态栏、人际关系、关联设定、高光时刻、语录和关系子图。"""
     name = char.get("name", "未知")
     aliases = char.get("aliases", []) or []
     identity = char.get("identity") or "未知"
@@ -86,6 +224,7 @@ def _write_character_card(char: dict, char_dir: Path, origin: str) -> Path:
     faction = char.get("faction") or ""
     relationships = char.get("relationships", []) or []
     related_settings = char.get("related_settings", []) or []
+    role_tags = char.get("role_tags", []) or []
 
     # frontmatter
     fm = _frontmatter([
@@ -95,6 +234,7 @@ def _write_character_card(char: dict, char_dir: Path, origin: str) -> Path:
         f"gender: {gender}",
         f"faction: {faction}" if faction else None,
         f"aliases: [{', '.join(aliases)}]" if aliases else None,
+        f"role_tags: [{', '.join(role_tags)}]" if role_tags else None,
         f"tags: [character, {_safe_filename(faction)}]" if faction else "tags: [character]",
         f"created: {_today()}",
     ])
@@ -104,6 +244,13 @@ def _write_character_card(char: dict, char_dir: Path, origin: str) -> Path:
         "",
         f"# {name}",
         "",
+    ]
+
+    # 状态栏
+    body += _build_status_bar(char)
+
+    # 身份和性格
+    body += [
         "## 身份",
         identity,
         "",
@@ -123,6 +270,15 @@ def _write_character_card(char: dict, char_dir: Path, origin: str) -> Path:
     setting_links = [f"[[settings/{s}|{s}]]" for s in related_settings]
     body += _wikilink_section("关联设定", setting_links)
 
+    # 高光时刻
+    body += _build_achievements(name, events or [])
+
+    # 语录
+    body += _build_quotes_section(char)
+
+    # 关系子图
+    body += _build_character_mermaid(char)
+
     content = "\n".join(fm) + "\n".join(body)
     filepath = char_dir / f"{_safe_filename(name)}.md"
     filepath.write_text(content, encoding="utf-8")
@@ -132,9 +288,9 @@ def _write_character_card(char: dict, char_dir: Path, origin: str) -> Path:
 # ── 设定卡片 ──────────────────────────────────────────────────
 
 def _write_setting_card(setting: dict, setting_dir: Path, origin: str) -> Path:
-    """生成单个设定卡片 .md 文件，包含关联人物和关联设定链接。"""
+    """生成单个设定卡片 .md 文件，包含状态栏、关联人物和关联设定链接。"""
     name = setting.get("name", "未知")
-    stype = setting.get("type") or "其他"
+    stype = setting.get("type") or setting.get("setting_type") or "其他"
     description = setting.get("description") or "暂无描述"
     related_characters = setting.get("related_characters", []) or []
     related_settings = setting.get("related_settings", []) or []
@@ -154,6 +310,13 @@ def _write_setting_card(setting: dict, setting_dir: Path, origin: str) -> Path:
         "",
         f"# {name}",
         "",
+    ]
+
+    # 状态栏
+    body += _build_setting_status_bar(setting, related_characters)
+
+    # 类型和描述
+    body += [
         f"**类型**：{stype}",
         "",
         description,
@@ -177,7 +340,7 @@ def _write_setting_card(setting: dict, setting_dir: Path, origin: str) -> Path:
 # ── 事件卡片 ──────────────────────────────────────────────────
 
 def _write_event_card(event: dict, event_dir: Path, origin: str) -> Path:
-    """生成单个事件卡片 .md 文件，包含参与人物、前置事件和关联设定链接。"""
+    """生成单个事件卡片 .md 文件，包含状态栏、参与人物、前置事件和关联设定链接。"""
     name = event.get("name", "未知")
     time = event.get("time") or "未知"
     participants = event.get("participants", []) or []
@@ -202,6 +365,13 @@ def _write_event_card(event: dict, event_dir: Path, origin: str) -> Path:
         "",
         f"# {name}",
         "",
+    ]
+
+    # 状态栏
+    body += _build_event_status_bar(event)
+
+    # 时间和描述
+    body += [
         f"**时间**：{time}",
         "",
         description,
@@ -387,7 +557,7 @@ def generate_vault_incremental(analysis: dict, output_dir: Path = None) -> list[
 
     # 增量写入人物卡片
     for char in characters:
-        filepath = _write_character_card_incremental(char, char_dir, title)
+        filepath = _write_character_card_incremental(char, char_dir, title, events)
         generated_files.append(str(filepath))
 
     # 增量写入设定卡片
@@ -406,7 +576,7 @@ def generate_vault_incremental(analysis: dict, output_dir: Path = None) -> list[
     return generated_files
 
 
-def _write_character_card_incremental(char: dict, char_dir: Path, origin: str) -> Path:
+def _write_character_card_incremental(char: dict, char_dir: Path, origin: str, events: list = None) -> Path:
     """
     增量写入人物卡片：已存在则更新，不存在则创建。
 
@@ -414,6 +584,7 @@ def _write_character_card_incremental(char: dict, char_dir: Path, origin: str) -
     - 基本信息：取更长的值
     - 关系列表：合并去重
     - 别名列表：合并去重
+    - role_tags/status/quotes：合并去重
     """
     name = char.get("name", "未知")
     filepath = char_dir / f"{_safe_filename(name)}.md"
@@ -425,7 +596,7 @@ def _write_character_card_incremental(char: dict, char_dir: Path, origin: str) -
             char = _merge_character_data(existing, char)
 
     # 写入（新建或更新后）
-    return _write_character_card(char, char_dir, origin)
+    return _write_character_card(char, char_dir, origin, events)
 
 
 def _write_setting_card_incremental(setting: dict, setting_dir: Path, origin: str) -> Path:
@@ -523,6 +694,20 @@ def _parse_character_md(content: str) -> dict:
                 aliases_str = line.split(':', 1)[1].strip()
                 if aliases_str.startswith('[') and aliases_str.endswith(']'):
                     char["aliases"] = [a.strip() for a in aliases_str[1:-1].split(',')]
+            elif line.startswith('role_tags:'):
+                tags_str = line.split(':', 1)[1].strip()
+                if tags_str.startswith('[') and tags_str.endswith(']'):
+                    char["role_tags"] = [t.strip() for t in tags_str[1:-1].split(',')]
+
+    # 提取状态栏（> 🟢 活跃 | 阵营：xxx | 定位：xxx）
+    for line in lines:
+        if line.startswith('> '):
+            status_text = line[2:]
+            # 提取状态
+            for status in ["活跃", "已故", "失踪", "退场", "未知"]:
+                if status in status_text:
+                    char["status"] = status
+                    break
 
     # 提取各部分内容
     current_section = None
@@ -536,6 +721,11 @@ def _parse_character_md(content: str) -> dict:
             section_content = []
         elif line.startswith('- '):
             section_content.append(line[2:].strip())
+        elif line.startswith('> "') and current_section and '语录' in current_section:
+            # 语录行
+            quote = line[2:].strip().strip('"')
+            if quote:
+                section_content.append(quote)
         elif current_section and line.strip():
             section_content.append(line.strip())
 
@@ -553,7 +743,7 @@ def _assign_character_section(char: dict, section: str, content: list):
         char["identity"] = '\n'.join(content)
     elif '性格' in section_lower:
         char["personality"] = '\n'.join(content)
-    elif '关系' in section_lower:
+    elif '关系' in section_lower and '网' not in section_lower:
         relationships = []
         for item in content:
             if '—' in item:
@@ -565,6 +755,8 @@ def _assign_character_section(char: dict, section: str, content: list):
                         "nature": parts[1].strip()
                     })
         char["relationships"] = relationships
+    elif '语录' in section_lower:
+        char["quotes"] = content
 
 
 def _parse_setting_md(content: str) -> dict:
@@ -631,14 +823,14 @@ def _merge_character_data(old: dict, new: dict) -> dict:
     merged = new.copy()
 
     # 文本字段：取更长的
-    for key in ["identity", "personality", "faction", "gender"]:
+    for key in ["identity", "personality", "faction", "gender", "status"]:
         old_val = old.get(key) or ""
         new_val = new.get(key) or ""
         if len(old_val) > len(new_val):
             merged[key] = old_val
 
     # 列表字段：合并去重
-    for key in ["aliases", "related_settings"]:
+    for key in ["aliases", "related_settings", "role_tags", "quotes"]:
         old_list = set(old.get(key) or [])
         new_list = set(new.get(key) or [])
         merged[key] = list(old_list | new_list)

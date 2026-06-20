@@ -38,6 +38,9 @@ JSON 结构：
       "personality": "性格特征",
       "gender": "男/女/未知",
       "faction": "所属势力/群体",
+      "role_tags": ["主角", "女主"],
+      "status": "活跃",
+      "quotes": ["经典语录1", "经典语录2"],
       "related_settings": ["设定名1", "设定名2"],
       "relationships": [
         {"target": "另一人名", "nature": "关系类型"}
@@ -79,7 +82,10 @@ JSON 结构：
 10. events 的 participants 必须引用文本中出现的人物名
 11. events 的 location 引用文本中出现的地点/设定名
 12. events 的 cause 引用其他事件名（表示因果关系，可选）
-13. 整个响应必须是一个合法的 JSON 对象，不能包含任何其他内容"""
+13. role_tags：角色定位标签，从以下词汇中选择：主角/女主/男主/反派/配角/导师/伙伴/路人/BOSS/隐藏角色
+14. status：角色当前状态，填"活跃/已故/失踪/退场/未知"之一，从文本推断
+15. quotes：该人物的经典语录或代表性台词，提取 2-3 句，没有则填空数组 []
+16. 整个响应必须是一个合法的 JSON 对象，不能包含任何其他内容"""
 
 
 def analyze_text(text: str, title: str = None) -> dict:
@@ -354,6 +360,9 @@ JSON 结构：
       "personality": "性格特征",
       "gender": "男/女/未知",
       "faction": "所属势力/群体",
+      "role_tags": ["主角"],
+      "status": "活跃",
+      "quotes": ["语录1"],
       "related_settings": ["设定名1", "设定名2"],
       "relationships": [
         {{"target": "另一人名", "nature": "关系类型"}}
@@ -395,7 +404,10 @@ JSON 结构：
 9. events：提取本章中的关键事件（转折点、重要情节、冲突等）
 10. events 的 participants 必须引用已知人物名
 11. events 的 cause 引用已知事件名（表示因果关系）
-12. 整个响应必须是一个合法的 JSON 对象"""
+12. role_tags：角色定位标签，从以下词汇中选择：主角/女主/男主/反派/配角/导师/伙伴/路人/BOSS/隐藏角色
+13. status：角色当前状态，填"活跃/已故/失踪/退场/未知"之一
+14. quotes：本章中该人物的经典语录或代表性台词，没有则填空数组 []
+15. 整个响应必须是一个合法的 JSON 对象"""
 
 
 # ── 上下文构建（分层压缩策略）──────────────────────────────────
