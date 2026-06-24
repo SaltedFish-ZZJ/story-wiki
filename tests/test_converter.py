@@ -2,10 +2,12 @@
 Story Wiki - 格式转换器模块测试
 测试平台格式转换、EPUB 生成、纯文本转换。
 """
+import os
 import re
 import shutil
 import tempfile
 from pathlib import Path
+from unittest.mock import patch, mock_open
 
 from src.converter import Converter, get_converter, convert_novel, SUPPORTED_PLATFORMS, PLATFORM_RULES
 

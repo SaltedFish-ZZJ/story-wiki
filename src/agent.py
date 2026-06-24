@@ -18,7 +18,7 @@ from src.generator import generate_vault
 
 HELP_TEXT = """
 ╔══════════════════════════════════════════════════╗
-║         Story Wiki 分析 Agent v0.5               ║
+║         Story Wiki 分析 Agent v0.6               ║
 ╠══════════════════════════════════════════════════╣
 ║                                                  ║
 ║  使用方式：                                       ║
@@ -30,6 +30,8 @@ HELP_TEXT = """
 ║       /list    — 列出已分析的作品                  ║
 ║       /vault   — 打开 vault 目录                  ║
 ║       /cache   — 清除分析缓存                     ║
+║       /growth  — 分析角色成长曲线                 ║
+║       /export  — 导出小说为各种格式               ║
 ║       /quit    — 退出                             ║
 ║                                                  ║
 ╚══════════════════════════════════════════════════╝
@@ -59,6 +61,216 @@ def list_analyzed_books():
         char_dir = book / "characters"
         char_count = len(list(char_dir.glob("*.md"))) if char_dir.exists() else 0
         print(f"  📖 {book.name} ({char_count} 个人物)")
+
+
+def get_available_books():
+    """获取可用的作品列表。"""
+    if not VAULT_DIR.exists():
+        return []
+    return [d.name for d in VAULT_DIR.iterdir() if d.is_dir() and d.name != ".obsidian"]
+
+
+def handle_growth_command(args_text: str):
+    """处理 /growth 命令 - 分析角色成长曲线。"""
+    from src.character_growth import CharacterGrowthTracker
+    import re
+
+    # 解析参数: /growth [作品名] [人物名]
+    parts = args_text.strip().split()
+    book_name = None
+    char_name = None
+
+    if len(parts) >= 2:
+        book_name = parts[1]
+    if len(parts) >= 3:
+        char_name = parts[2]
+
+    # 如果没有指定作品名，让用户选择
+    if not book_name:
+        books = get_available_books()
+        if not books:
+            print("❌ 没有可分析的作品，请先分析一个作品")
+            return
+        print("\n可分析的作品：")
+        for i, book in enumerate(books, 1):
+            print(f"  {i}. {book}")
+        try:
+            choice = input("\n选择作品编号 (或输入作品名): ").strip()
+            if choice.isdigit() and 1 <= int(choice) <= len(books):
+                book_name = books[int(choice) - 1]
+            else:
+                book_name = choice
+        except (EOFError, KeyboardInterrupt):
+            print("\n取消操作")
+            return
+
+    tracker = CharacterGrowthTracker(VAULT_DIR, book_name)
+
+    if char_name:
+        # 分析指定角色
+        curve = tracker.get_character_growth_curve(char_name)
+        if curve is None:
+            print(f"❌ 人物不存在: {char_name}")
+            return
+
+        print(f"\n{'═' * 60}")
+        print(f"  {curve.character_name} 成长分析报告")
+        print(f"{'═' * 60}")
+        print(f"  摘要: {curve.summary}")
+        print(f"  趋势: {curve.overall_trend}")
+        print(f"  成长事件数: {len(curve.growth_events)}")
+        print(f"  成长阶段数: {len(curve.growth_phases)}")
+
+        if curve.growth_phases:
+            print(f"\n  成长阶段:")
+            print("-" * 60)
+            for i, phase in enumerate(curve.growth_phases, 1):
+                print(f"  阶段 {i}: {phase.get('type', '未知')}")
+                print(f"    范围: {phase.get('start_chapter', '?')} - {phase.get('end_chapter', '?')}")
+                print(f"    事件数: {phase.get('events_count', 0)}")
+        print(f"{'═' * 60}")
+    else:
+        # 分析所有主要人物
+        vault_manager = tracker.vault_manager
+        cards = vault_manager.load_all_cards()
+        characters = cards.get("characters", [])
+
+        if not characters:
+            print("❌ 知识库中没有人��信息")
+            return
+
+        print(f"\n{'═' * 60}")
+        print(f"  {book_name} 全部角色成长分析")
+        print(f"{'═' * 60}")
+
+        analyzed_count = 0
+        for char_data in characters:
+            char_name = char_data.get("name", "")
+            if not char_name:
+                continue
+
+            curve = tracker.get_character_growth_curve(char_name)
+            if curve is None or len(curve.growth_events) == 0:
+                continue
+
+            analyzed_count += 1
+            print(f"\n  👤 {char_name}")
+            print(f"    摘要: {curve.summary}")
+            print(f"    趋势: {curve.overall_trend}")
+            print(f"    成长事件数: {len(curve.growth_events)}")
+
+        if analyzed_count == 0:
+            print("\n  暂无角色成长数据")
+        print(f"\n{'═' * 60}")
+
+
+def handle_export_command(args_text: str):
+    """处理 /export 命令 - 导出小说为各种格式。"""
+    from src.novel_logger import NovelLogger
+    from src.converter import Converter
+
+    # 解析参数: /export [作品名] [格式]
+    parts = args_text.strip().split()
+    book_name = None
+    export_format = "all"  # 默认导出所有格式
+
+    if len(parts) >= 2:
+        book_name = parts[1]
+    if len(parts) >= 3:
+        export_format = parts[2].lower()
+
+    # 如果没有指定作品名，让用户选择
+    if not book_name:
+        books = get_available_books()
+        if not books:
+            print("❌ 没有可导出的作品，请先分析并创作一个作品")
+            return
+        print("\n可导出的作品：")
+        for i, book in enumerate(books, 1):
+            print(f"  {i}. {book}")
+        try:
+            choice = input("\n选择作品编号 (或输入作品名): ").strip()
+            if choice.isdigit() and 1 <= int(choice) <= len(books):
+                book_name = books[int(choice) - 1]
+            else:
+                book_name = choice
+        except (EOFError, KeyboardInterrupt):
+            print("\n取消操作")
+            return
+
+    # 选择导出格式
+    if export_format not in ("epub", "txt", "md", "all"):
+        print(f"❌ 不支持的格式: {export_format}")
+        print("   支持的格式: epub, txt, md, all")
+        return
+
+    # 初始化 NovelLogger 获取小说内容
+    novel_logger = NovelLogger({
+        "book_title": book_name,
+    })
+
+    try:
+        full_novel = novel_logger.merge_novel(book_name)
+    except FileNotFoundError as e:
+        print(f"❌ 未找到小说内容: {e}")
+        print("请先使用 --create 模式生成小说")
+        return
+
+    # 初始化转换器
+    converter = Converter({})
+    metadata = {"title": book_name}
+
+    print(f"\n{'='*50}")
+    print(f"📦 开始导出: {book_name}")
+    print(f"{'='*50}")
+
+    exported_files = []
+
+    if export_format in ("md", "all"):
+        # Markdown/TXT 导出
+        txt_content = converter.convert_to_txt(full_novel)
+        from src.utils import safe_filename
+        md_path = converter.output_dir / f"{safe_filename(book_name)}.txt"
+        md_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(md_path, "w", encoding="utf-8") as f:
+            f.write(txt_content)
+        exported_files.append(f"  ✅ TXT: {md_path}")
+        print(f"  ✅ TXT 导出完成: {md_path}")
+
+    if export_format in ("epub", "all"):
+        try:
+            epub_path = converter.convert_to_epub(full_novel, metadata)
+            exported_files.append(f"  ✅ EPUB: {epub_path}")
+            print(f"  ✅ EPUB 导出完成: {epub_path}")
+        except ImportError:
+            print("  ❌ EPUB 导出需要 ebooklib 库，请运行: pip install ebooklib")
+
+    if export_format in ("txt", "all"):
+        txt_content = converter.convert_to_txt(full_novel)
+        from src.utils import safe_filename
+        txt_path = converter.output_dir / f"{safe_filename(book_name)}_plain.txt"
+        txt_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(txt_path, "w", encoding="utf-8") as f:
+            f.write(txt_content)
+        exported_files.append(f"  ✅ TXT: {txt_path}")
+        print(f"  ✅ TXT 导出完成: {txt_path}")
+
+    if export_format == "all":
+        # 平台格式
+        platform_content = converter.convert_to_platform(full_novel, platform="platform")
+        from src.utils import safe_filename
+        platform_path = converter.output_dir / f"{safe_filename(book_name)}_platform.txt"
+        platform_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(platform_path, "w", encoding="utf-8") as f:
+            f.write(platform_content)
+        exported_files.append(f"  ✅ Platform: {platform_path}")
+        print(f"  ✅ Platform 导出完成: {platform_path}")
+
+    print(f"\n{'='*50}")
+    print(f"📊 导出完成！共 {len(exported_files)} 个文件")
+    for f in exported_files:
+        print(f"    {f}")
+    print(f"{'='*50}")
 
 
 def analyze_and_generate(text: str, title: str = None):
@@ -157,7 +369,7 @@ def main():
 
         # 命令处理
         if user_input.startswith('/'):
-            cmd = user_input.lower()
+            cmd = user_input.lower().split()[0] if user_input.strip() else ''
             if cmd in ('/quit', '/exit', '/q'):
                 print("再见 👋")
                 break
@@ -170,6 +382,10 @@ def main():
                 print(f"用 Obsidian 打开此目录即可查看")
             elif cmd == '/cache':
                 clear_cache()
+            elif cmd == '/growth':
+                handle_growth_command(user_input)
+            elif cmd == '/export':
+                handle_export_command(user_input)
             else:
                 print(f"未知命令: {user_input}，输入 /help 查看帮助")
             continue

@@ -7,6 +7,8 @@ AI 驱动的故事知识库系统。
 - **分析**：输入任意文字材料（小说/历史事件/传记），AI 自动提取人物、设定、关系，生成 Obsidian 笔记
 - **可视化**：利用 Obsidian Graph View 查看人物关系网络（支持节点颜色区分）
 - **创作**：基于知识库驱动 AI 创作新小说（情节生成 + 章节生成 + 日志记录）
+- **角色成长曲线**：追踪人物状态变化，生成成长事件、阶段分析、趋势报告
+- **多格式导出**：支持 EPUB/TXT/平台格式导出，批量转换
 - **体验优化**：分析进度条、结果缓存、增量分析
 - **长文本优化**：基于 DeepSeek 建议，支持《西游记》等超长文本（80万字+）的完整处理
 
@@ -143,7 +145,56 @@ python src/main.py --clear-cache
 /list    — 列出已分析的作品
 /vault   — 打开 vault 目录
 /cache   — 清除分析缓存
+/growth  — 分析角色成长曲线
+/export  — 导出小说为各种格式
 /quit    — 退出
+```
+
+### 角色成长曲线（v0.8.0）
+
+追踪人物在故事中的状态变化，生成成长分析报告：
+
+```bash
+# 分析指定角色的成长曲线
+python src/main.py --growth-analysis "林黛玉" --title "红楼梦"
+
+# 分析所有主要角色
+python src/main.py --growth-analysis --title "红楼梦"
+
+# 查看角色成长事件列表
+python src/main.py --growth-curve "贾宝玉" --title "红楼梦"
+
+# 生成图表数据（JSON）
+python src/main.py --growth-chart "薛宝钗" --title "红楼梦"
+
+# 从分析结果中提取成长事件
+python src/main.py --extract-growth --input analysis.json --title "红楼梦"
+```
+
+**交互式命令：**
+```
+/growth [作品名] [人物名]  — 分析角色成长曲线
+```
+
+### 多格式导出（v0.8.0）
+
+将已生成的小说导出为多种格式：
+
+```bash
+# 导出为 TXT 格式
+python src/main.py --export-txt --title "红楼梦"
+
+# 导出为 EPUB 格式
+python src/main.py --export-epub --title "红楼梦"
+
+# 批量导出所有格式（EPUB/TXT/平台格式）
+python src/main.py --batch-export --title "红楼梦"
+```
+
+**交互式命令：**
+```
+/export [作品名] [格式]  — 导出小说
+  格式选项: epub, txt, md, all (默认 all)
 ```
 
 ## 项目结构

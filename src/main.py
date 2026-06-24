@@ -146,6 +146,55 @@ def main():
         help="查找跨作品相似人物",
     )
 
+    # ── 成长曲线参数 ──
+    parser.add_argument(
+        "--growth-curve",
+        type=str,
+        default=None,
+        help="查看指定人物的成长曲线",
+    )
+    parser.add_argument(
+        "--growth-chart",
+        type=str,
+        default=None,
+        help="生成指定人物的成长曲线图表数据",
+    )
+    parser.add_argument(
+        "--extract-growth",
+        action="store_true",
+        help="从分析结果中提取成长事件并保存",
+    )
+    parser.add_argument(
+        "--growth-analysis",
+        type=str,
+        nargs="?",
+        const="",
+        default=None,
+        help="分析角色成长曲线（可选指定人物名，不指定则分析全部主要人物）",
+    )
+
+    # ── 格式转换/导出参数 ──
+    parser.add_argument(
+        "--export-markdown",
+        action="store_true",
+        help="将已生成的小说导出为Markdown格式",
+    )
+    parser.add_argument(
+        "--export-epub",
+        action="store_true",
+        help="将已生成的小说导出为EPUB格式",
+    )
+    parser.add_argument(
+        "--export-txt",
+        action="store_true",
+        help="将已生成的小说导出为纯文本格式",
+    )
+    parser.add_argument(
+        "--batch-export",
+        action="store_true",
+        help="批量导出为所有支持的格式（EPUB/TXT/平台格式）",
+    )
+
     args = parser.parse_args()
 
     # 处理内存状态命令
@@ -157,6 +206,146 @@ def main():
     if args.clear_cache:
         clear_cache()
         return
+
+    # ── 成长曲线命令 ──
+    if args.growth_curve or args.growth_chart or args.extract_growth or args.growth_analysis is not None:
+        from src.character_growth import CharacterGrowthTracker
+
+        if not args.title:
+            parser.error("成长曲线命令需要 --title 参数指定作品标题")
+
+        tracker = CharacterGrowthTracker(VAULT_DIR, args.title)
+
+        if args.growth_curve:
+            curve = tracker.get_character_growth_curve(args.growth_curve)
+            if curve is None:
+                print(f"人物不存在: {args.growth_curve}")
+                sys.exit(1)
+
+            print(f"\n{'═' * 60}")
+            print(f"  {curve.character_name} 成长曲线")
+            print(f"{'═' * 60}")
+            print(f"  摘要: {curve.summary}")
+            print(f"  趋势: {curve.overall_trend}")
+            print(f"  成长事件数: {len(curve.growth_events)}")
+
+            if curve.growth_events:
+                print(f"\n  成长事件:")
+                print("-" * 60)
+                for event in curve.growth_events:
+                    sig_mark = "★" if event.significance == "高" else "☆"
+                    print(f"  {sig_mark} [{event.chapter}] {event.event_name}")
+                    print(f"    类型: {event.growth_type} | 时间: {event.time or '未知'}")
+                    if event.description:
+                        print(f"    描述: {event.description}")
+                    if event.state_after:
+                        print(f"    状态: {event.state_after}")
+                    print()
+            print(f"{'═' * 60}")
+            return
+
+        if args.growth_chart:
+            chart_data = tracker.generate_growth_chart_data(args.growth_chart)
+            if "error" in chart_data:
+                print(f"错误: {chart_data['error']}")
+                sys.exit(1)
+
+            import json
+            print(json.dumps(chart_data, ensure_ascii=False, indent=2))
+            return
+
+        if args.extract_growth:
+            if not args.input:
+                print("提取成长事件需要 --input 参数指定分析结果文件")
+                sys.exit(1)
+
+            try:
+                import json
+                with open(args.input, "r", encoding="utf-8") as f:
+                    analysis = json.load(f)
+
+                growth_events = tracker.extract_growth_events_from_analysis(analysis)
+                if growth_events:
+                    # 按人物分组
+                    char_events = {}
+                    for event in growth_events:
+                        char_name = event.event_name.split("状态更新")[0].split("与")[0]
+                        if char_name not in char_events:
+                            char_events[char_name] = []
+                        char_events[char_name].append(event)
+
+                    for char_name, events in char_events.items():
+                        tracker.save_growth_events(char_name, events)
+                        print(f"已保存 {char_name} 的 {len(events)} 个成长事件")
+                else:
+                    print("未检测到成长事件")
+            except Exception as e:
+                print(f"提取成长事件失败: {e}")
+                sys.exit(1)
+            return
+
+        if args.growth_analysis is not None:
+            # 分析角色成长曲线
+            target_char = args.growth_analysis if args.growth_analysis else None
+
+            if target_char:
+                # 分析指定角色
+                curve = tracker.get_character_growth_curve(target_char)
+                if curve is None:
+                    print(f"人物不存在: {target_char}")
+                    sys.exit(1)
+
+                print(f"\n{'═' * 60}")
+                print(f"  {curve.character_name} 成长分析报告")
+                print(f"{'═' * 60}")
+                print(f"  摘要: {curve.summary}")
+                print(f"  趋势: {curve.overall_trend}")
+                print(f"  成长阶段数: {len(curve.growth_phases)}")
+
+                if curve.growth_phases:
+                    print(f"\n  成长阶段:")
+                    print("-" * 60)
+                    for i, phase in enumerate(curve.growth_phases, 1):
+                        print(f"  阶段 {i}: {phase.get('type', '未知')}")
+                        print(f"    范围: {phase.get('start_chapter', '?')} - {phase.get('end_chapter', '?')}")
+                        print(f"    事件数: {phase.get('events_count', 0)} (高重要性: {phase.get('high_significance_count', 0)})")
+                        if phase.get('description'):
+                            print(f"    描述: {phase['description']}")
+                print(f"{'═' * 60}")
+            else:
+                # 分析所有主要人物
+                vault_manager = tracker.vault_manager
+                cards = vault_manager.load_all_cards()
+                characters = cards.get("characters", [])
+
+                if not characters:
+                    print("知识库中没有人��信息")
+                    sys.exit(1)
+
+                print(f"\n{'═' * 60}")
+                print(f"  全部角色成长分析")
+                print(f"{'═' * 60}")
+
+                for char_data in characters:
+                    char_name = char_data.get("name", "")
+                    if not char_name:
+                        continue
+
+                    curve = tracker.get_character_growth_curve(char_name)
+                    if curve is None:
+                        continue
+
+                    event_count = len(curve.growth_events)
+                    if event_count == 0:
+                        continue
+
+                    print(f"\n  👤 {char_name}")
+                    print(f"    摘要: {curve.summary}")
+                    print(f"    趋势: {curve.overall_trend}")
+                    print(f"    成长事件数: {event_count}")
+
+                print(f"\n{'═' * 60}")
+            return
 
     # ── 项目管理命令 ──
     if args.list_books or args.book_info or args.cross_search or args.similar_characters:
@@ -234,6 +423,79 @@ def main():
                     print(f"    匹配方式: {m['match_type']}  置信度: {m['confidence']}")
                 print("-" * 60)
             return
+
+    # ── 格式转换/导出命令 ──
+    if args.export_markdown or args.export_epub or args.export_txt or args.batch_export:
+        from src.novel_logger import NovelLogger
+        from src.converter import Converter
+
+        if not args.title:
+            parser.error("导出命令需要 --title 参数指定作品标题")
+
+        # 初始化 NovelLogger 获取小说内容
+        novel_logger = NovelLogger({
+            "book_title": args.title,
+        })
+
+        try:
+            full_novel = novel_logger.merge_novel(args.title)
+        except FileNotFoundError as e:
+            print(f"[错误] 未找到小说内容: {e}")
+            print("请先使用 --create 模式生成小说")
+            sys.exit(1)
+
+        # 初始化转换器
+        converter = Converter({})
+        metadata = {"title": args.title}
+
+        print(f"\n{'='*50}")
+        print(f"📦 开始导出: {args.title}")
+        print(f"{'='*50}")
+
+        exported_files = []
+
+        if args.export_markdown:
+            # Markdown 导出（即纯文本，去除 Markdown 标记）
+            txt_content = converter.convert_to_txt(full_novel)
+            from src.utils import safe_filename
+            md_path = converter.output_dir / f"{safe_filename(args.title)}.txt"
+            md_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(md_path, "w", encoding="utf-8") as f:
+                f.write(txt_content)
+            exported_files.append(f"  ✅ Markdown/TXT: {md_path}")
+            print(f"  ✅ Markdown 导出完成: {md_path}")
+
+        if args.export_epub:
+            try:
+                epub_path = converter.convert_to_epub(full_novel, metadata)
+                exported_files.append(f"  ✅ EPUB: {epub_path}")
+                print(f"  ✅ EPUB 导出完成: {epub_path}")
+            except ImportError:
+                print("  ❌ EPUB 导出需要 ebooklib 库，请运行: pip install ebooklib")
+
+        if args.export_txt:
+            txt_content = converter.convert_to_txt(full_novel)
+            from src.utils import safe_filename
+            txt_path = converter.output_dir / f"{safe_filename(args.title)}_plain.txt"
+            txt_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(txt_path, "w", encoding="utf-8") as f:
+                f.write(txt_content)
+            exported_files.append(f"  ✅ TXT: {txt_path}")
+            print(f"  ✅ TXT 导出完成: {txt_path}")
+
+        if args.batch_export:
+            print("\n  📦 批量导出所有格式...")
+            results = converter.convert_to_all(full_novel, metadata)
+            for fmt, path in results.items():
+                exported_files.append(f"  ✅ {fmt.upper()}: {path}")
+                print(f"  ✅ {fmt.upper()} 导出完成: {path}")
+
+        print(f"\n{'='*50}")
+        print(f"📊 导出完成！共 {len(exported_files)} 个文件")
+        for f in exported_files:
+            print(f"    {f}")
+        print(f"{'='*50}")
+        return
 
     # ── 创作模式 ──
     if args.create:

@@ -499,6 +499,48 @@ def _extract_status(content: str) -> str:
     return "未知"
 
 
+def _parse_growth_events(lines: List[str]) -> List[dict]:
+    """解析成长事件列表。"""
+    events = []
+    current_event = None
+
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+
+        # 检测事件标题行 (### 事件名)
+        if line.startswith("### "):
+            if current_event:
+                events.append(current_event)
+            event_name = line[4:].strip()
+            current_event = {"event_name": event_name}
+            continue
+
+        # 解析属性行
+        if current_event and ":" in line:
+            key, _, value = line.partition(":")
+            key = key.strip()
+            value = value.strip()
+
+            if key in ["章节", "时间", "成长类型", "重要性", "描述", "状态前", "状态后"]:
+                key_map = {
+                    "章节": "chapter",
+                    "时间": "time",
+                    "成长类型": "growth_type",
+                    "重要性": "significance",
+                    "描述": "description",
+                    "状态前": "state_before",
+                    "状态后": "state_after",
+                }
+                current_event[key_map.get(key, key)] = value
+
+    if current_event:
+        events.append(current_event)
+
+    return events
+
+
 def _parse_character_md(content: str) -> Optional[dict]:
     """解析人物卡片 Markdown。"""
     lines = content.strip().split("\n")
@@ -550,6 +592,18 @@ def _parse_character_md(content: str) -> Optional[dict]:
 
     # 语录
     char["quotes"] = _extract_section(content, "语录")
+
+    # 当前状态
+    current_state_lines = _extract_section(content, "当前状态")
+    char["current_state"] = "\n".join(current_state_lines) if current_state_lines else ""
+
+    # 动机
+    motivation_lines = _extract_section(content, "动机")
+    char["motivation"] = "\n".join(motivation_lines) if motivation_lines else ""
+
+    # 成长事件
+    growth_lines = _extract_section(content, "成长轨迹")
+    char["growth_events"] = _parse_growth_events(growth_lines)
 
     return char
 
@@ -643,6 +697,22 @@ def _parse_event_md(content: str) -> Optional[dict]:
 # ══════════════════════════════════════════════════════════════
 
 def _dict_to_character(d: dict) -> Character:
+    from src.interfaces import GrowthEvent
+    growth_events_data = d.get("growth_events", [])
+    growth_events = [
+        GrowthEvent(
+            chapter=e.get("chapter", ""),
+            time=e.get("time", ""),
+            event_name=e.get("event_name", ""),
+            description=e.get("description", ""),
+            state_before=e.get("state_before", ""),
+            state_after=e.get("state_after", ""),
+            growth_type=e.get("growth_type", ""),
+            significance=e.get("significance", "中"),
+        )
+        for e in growth_events_data
+    ]
+
     return Character(
         name=d.get("name", ""),
         identity=d.get("identity", ""),
@@ -657,6 +727,7 @@ def _dict_to_character(d: dict) -> Character:
         quotes=d.get("quotes", []),
         motivation=d.get("motivation", ""),
         current_state=d.get("current_state", ""),
+        growth_events=growth_events,
     )
 
 
@@ -685,6 +756,22 @@ def _dict_to_event(d: dict) -> Event:
 
 
 def _character_to_dict(c: Character) -> dict:
+    growth_events = []
+    if c.growth_events:
+        growth_events = [
+            {
+                "chapter": e.chapter,
+                "time": e.time,
+                "event_name": e.event_name,
+                "description": e.description,
+                "state_before": e.state_before,
+                "state_after": e.state_after,
+                "growth_type": e.growth_type,
+                "significance": e.significance,
+            }
+            for e in c.growth_events
+        ]
+
     return {
         "name": c.name,
         "identity": c.identity,
@@ -699,6 +786,7 @@ def _character_to_dict(c: Character) -> dict:
         "quotes": c.quotes,
         "motivation": c.motivation,
         "current_state": c.current_state,
+        "growth_events": growth_events,
     }
 
 
@@ -812,6 +900,34 @@ def _character_to_markdown(char: Character) -> str:
         body.append("## 经典语录")
         for q in char.quotes[:5]:
             body.append(f'> "{q}"')
+        body.append("")
+
+    # 当前状态
+    if char.current_state:
+        body.append("## 当前状态")
+        body.append(char.current_state)
+        body.append("")
+
+    # 成长轨迹
+    if char.growth_events:
+        body.append("## 成长轨迹")
+        for event in char.growth_events:
+            body.append(f"### {event.event_name}")
+            if event.chapter:
+                body.append(f"章节: {event.chapter}")
+            if event.time:
+                body.append(f"时间: {event.time}")
+            if event.growth_type:
+                body.append(f"成长类型: {event.growth_type}")
+            if event.significance:
+                body.append(f"重要性: {event.significance}")
+            if event.description:
+                body.append(f"描述: {event.description}")
+            if event.state_before:
+                body.append(f"状态前: {event.state_before}")
+            if event.state_after:
+                body.append(f"状态后: {event.state_after}")
+            body.append("")
         body.append("")
 
     return "\n".join(fm) + "\n".join(body)

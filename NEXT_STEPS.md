@@ -169,7 +169,7 @@
 
 ### 测试覆盖
 - [x] 分析管线模块测试覆盖率达到80%以上
-- [x] 所有测试通过（417个测试函数）
+- [x] 所有测试通过（516个测试函数）
 - [x] 测试基础设施完善（conftest.py、pyproject.toml）
 
 ### 性能指标
@@ -230,6 +230,32 @@
 - [ ] 文档体系完善
 
 ## 更新日志
+
+### 2026-06-24
+**完成内容**：Phase 4 体验优化 - 角色成长曲线 + 格式转换增强
+
+**新增模块**：
+- `src/character_growth.py` - 角色成长曲线分析（事件提取、曲线生成、阶段识别）
+- 更新 `src/converter.py` - 格式转换（EPUB/TXT/平台格式）
+
+**新增测试文件**：
+- `tests/test_character_growth.py` - 77个测试（角色成长曲线模块）
+- `tests/test_converter.py` - 66个测试（格式转换模块）
+- `tests/test_integration_growth.py` - 200+行（成长曲线集成测试）
+- `tests/test_integration_export.py` - 300+行（格式转换集成测试）
+
+**功能更新**：
+- `src/main.py` - 新增CLI参数：--growth-analysis, --export-markdown, --export-epub, --export-txt, --batch-export
+- `src/agent.py` - 新增交互式命令：/growth, /export
+
+**测试覆盖**：
+- 总计：516个测试函数（原有417个 + 新增99个单元测试 + 集成测试）
+- 所有测试全部通过
+
+**文档更新**：
+- `AGENTS.md` - 更新Phase 4状态为已完成，模块数更新为20个
+- `README.md` - 新增角色成长曲线和多格式导出功能说明
+- `NEXT_STEPS.md` - 更新开发计划和进度
 
 ### 2026-06-23
 **完成内容**：分析管线模块单元测试开发

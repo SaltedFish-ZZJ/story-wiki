@@ -23,6 +23,7 @@ class Character:
     quotes: List[str] = None
     motivation: str = ""
     current_state: str = ""
+    growth_events: List['GrowthEvent'] = None
 
     def __post_init__(self):
         if self.aliases is None:
@@ -35,6 +36,31 @@ class Character:
             self.related_settings = []
         if self.quotes is None:
             self.quotes = []
+        if self.growth_events is None:
+            self.growth_events = []
+
+
+@dataclass
+class GrowthEvent:
+    """角色成长事件"""
+    event_name: str
+    chapter: str = ""
+    time: str = ""
+    description: str = ""
+    state_before: str = ""
+    state_after: str = ""
+    growth_type: str = ""  # 实力/地位/情感/认知/关系
+    significance: str = "中"  # 高/中/低
+
+
+@dataclass
+class CharacterGrowthCurve:
+    """角色成长曲线"""
+    character_name: str
+    growth_events: List[GrowthEvent]
+    summary: str
+    growth_phases: List[dict]  # 成长阶段划分
+    overall_trend: str  # 整体趋势描述
 
 
 @dataclass

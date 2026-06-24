@@ -20,7 +20,7 @@ Story Wiki 是一个 AI 驱动的故事知识库系统，包含**分析管线**�
 story_wiki/
 ├── AGENTS.md                ← 你正在看的文件
 ├── README.md                ← 项目说明
-├── src/                     ← 源代码（19 个模块）
+├── src/                     ← 源代码（20 个模块）
 │   ├── interfaces.py        ← 接口规范（8 个接口 + 5 个数据结构）
 │   ├── config.py            ← 配置（API key、路径、参数、内存监控）
 │   ├── utils.py             ← 工具函数（文件名处理、frontmatter、名称归一化）
@@ -42,12 +42,13 @@ story_wiki/
 │   ├── converter.py         ← 格式转换（EPUB/TXT/平台格式）
 │   ├── commercial_manager.py← 商业化管理（收益估算、平台比较）
 │   ├── project_manager.py   ← 跨作品管理（多书对比、相似人物、跨书时间线）
+│   ├── character_growth.py  ← 角色成长曲线（事件提取、曲线分析、阶段识别）
 │   │
 │   │  ── 入口 ──
 │   ├── main.py              ← CLI 入口（分析模式 + 创作模式）
 │   └── agent.py             ← 交互式分析（支持分章/缓存管理）
 │
-├── tests/                   ← 测试（244 个测试函数）
+├── tests/                   ← 测试（516 个测试函数）
 ├── data/
 │   ├── input/               ← 待分析文本放这里
 │   ├── novels/              ← 生成的小说输出
@@ -151,9 +152,9 @@ Obsidian Graph View 自动识别为边。
 - [x] 格式转换（converter.py — EPUB/TXT/平台格式）
 - [x] 商业化管理（commercial_manager.py — 收益估算、平台比较）
 
-**Phase 4：体验优化** 🔧 进行中
+**Phase 4：体验优化** ✅ 已完成 (2026-06-24)
 - [x] 人物去重增强（别名匹配 + AI 辅助判断）
 - [x] 章节摘要合并（全书摘要生成）
 - [x] 多本书管理（跨作品人物关联）— project_manager.py + VaultManager.list_books() + CLI 命令
-- [ ] 角色成长曲线（追踪人物状态变化）
-- [ ] 输出格式转换增强（EPUB/Markdown 导出优化）
+- [x] 角色成长曲线 — character_growth.py（追踪人物状态变化，成长事件提取，阶段分析）
+- [x] 输出格式转换增强 — converter.py + main.py/agent.py（EPUB/TXT/平台格式导出，交互式导出命令）
