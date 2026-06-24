@@ -3,22 +3,40 @@
 ## 职责
 
 调用 DeepSeek API，从纯文本中提取人物、设定、事件、关系等结构化数据。
+支持分章分析长文本，带进度显示和结果缓存。
 
 ## 接口
 
 ```python
-def analyze_text(text: str) -> dict:
+def analyze_text(text: str, title: str = None) -> dict:
     """
-    输入纯文本，返回结构化分析结果。
+    分析文本，提取人物、设定、关系。
     
-    返回格式：
-    {
-        "title": "作品名",
-        "characters": [...],
-        "settings": [...],
-        "events": [...],
-        "summary": "一句话摘要"
-    }
+    Args:
+        text: 纯文本内容
+        title: 可选的作品名（覆盖 AI 推断）
+    
+    Returns:
+        结构化分析结果 dict
+    """
+```
+
+```python
+def analyze_chapter(text: str, known_characters: list = None,
+                    known_settings: list = None, known_events: list = None,
+                    chapter_title: str = None) -> dict:
+    """
+    分析单个章节，携带已知人物/设定/事件上下文。
+    
+    Args:
+        text: 章节文本
+        known_characters: 已知人物列表（之前章节提取的）
+        known_settings: 已知设定列表
+        known_events: 已知事件列表
+        chapter_title: 当前章节标题
+    
+    Returns:
+        本章的分析结果 dict
     """
 ```
 
@@ -92,7 +110,38 @@ def parse_ai_response(raw: str) -> dict:
     raise ValueError("AI 返回内容无法解析为 JSON")
 ```
 
-## Token 限制策略（Demo 阶段）
+## Token 限制策略
 
-- 文本 ≤ 8000 字：直接发送全文
-- 文本 > 8000 字：截取前 8000 字（Demo 限制，后续做分章处理）
+- 文本 ≤ 400000 字：直接发送全文（DeepSeek 1M 上下文）
+- 文本 > 400000 字：截取前 400000 字
+
+## 分章分析
+
+长文本（> 5000 字）自动启用分章分析：
+
+1. **章节切分**：按标题模式（第X章/第X回/Chapter X）切分，无标记时按字数 fallback
+2. **逐章分析**：每章携带已知人物/设定/事件上下文，AI 只提取新内容
+3. **合并去重**：同名人物合并（取更长字段、合并关系），同名设定取更长描述
+4. **进度显示**：`[进度] 20% (3/15) — 分析: 第2章 (23365字)`
+
+## 分析结果缓存
+
+为避免重复分析同一文本，支持结果缓存：
+
+- **缓存键**：每章文本的 MD5 哈希 + 作品名哈希
+- **缓存位置**：`data/state/cache/analysis/`
+- **缓存有效期**：7 天（过期自动失效）
+- **使用方式**：
+  - 默认启用缓存
+  - `--no-cache` 禁用缓存（强制重新分析）
+  - `--clear-cache` 清除所有缓存
+  - Agent 中使用 `/cache` 命令清除缓存
+
+```python
+# 缓存读写
+def _get_cached_result(text: str, title: str = None) -> dict | None:
+    """从缓存读取分析结果，未命中返回 None"""
+
+def _save_cached_result(text: str, title: str, result: dict):
+    """保存分析结果到缓存"""
+```

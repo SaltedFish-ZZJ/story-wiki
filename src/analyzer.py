@@ -1,10 +1,12 @@
 """
 Story Wiki - AI 分析模块
 调用 DeepSeek API，从文本中提取人物、设定、关系等结构化数据。
+
+优化：添加请求体大小检查，改进长文本处理。
 """
 import json
-import re
 import time
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -18,11 +20,49 @@ from src.config import (
     MAX_TOKENS,
     STATE_DIR,
     TEMPERATURE,
+    REQUEST_SIZE_WARNING,
+    REQUEST_SIZE_LIMIT,
+    MAX_RETRIES,
+    RETRY_BASE_DELAY,
 )
+from src.utils import parse_ai_response as _parse_response, normalize_name as _normalize_name
 
-# ── 重试配置 ──
-MAX_RETRIES = 3          # 最大重试次数
-RETRY_BASE_DELAY = 2     # 首次重试等待秒数（指数退避）
+
+def _get_memory_usage() -> dict:
+    """获取当前内存使用情况。"""
+    try:
+        import psutil
+        process = psutil.Process()
+        memory_info = process.memory_info()
+        return {
+            "rss_mb": memory_info.rss / 1024 / 1024,
+            "vms_mb": memory_info.vms / 1024 / 1024,
+        }
+    except ImportError:
+        # psutil 未安装，返回估算值
+        return {"rss_mb": 0, "vms_mb": 0}
+
+
+def _check_request_size(payload: dict) -> tuple[bool, str]:
+    """
+    检查请求体大小。
+
+    Returns:
+        (is_ok, message): 是否正常，以及提示信息
+    """
+    try:
+        payload_json = json.dumps(payload, ensure_ascii=False)
+        size_bytes = len(payload_json.encode('utf-8'))
+        size_mb = size_bytes / 1024 / 1024
+
+        if size_bytes > REQUEST_SIZE_LIMIT:
+            return False, f"请求体过大 ({size_mb:.1f}MB)，超过限制 ({REQUEST_SIZE_LIMIT // 1024 // 1024}MB)"
+        elif size_bytes > REQUEST_SIZE_WARNING:
+            return True, f"⚠️ 请求体较大 ({size_mb:.1f}MB)，可能影响性能"
+        else:
+            return True, ""
+    except Exception as e:
+        return True, f"无法检查请求体大小: {e}"
 
 # ── System Prompt ──────────────────────────────────────────
 SYSTEM_PROMPT = """你是一个专业的文学分析助手。请从给定文本中提取以下信息，严格以 JSON 格式返回，不要添加任何 markdown 包裹、代码块标记或额外文字。
@@ -59,11 +99,13 @@ JSON 结构：
   "events": [
     {
       "name": "事件名（简洁概括，4-8字，如'宝黛初见'、'抄检大观园'）",
-      "time": "时间（从文本推断，如'某年'、'春天'、null）",
+      "time": "时间（必须从文本推断，如'某年'、'春天'、'第X回'，不要填 null）",
       "participants": ["参与人物名"],
-      "location": "发生地点（可选，引用设定名）",
-      "description": "一句话描述事件内容",
-      "cause": ["导致此事件的前置事件名（可选）"]
+      "location": "发生地点（引用设定名）",
+      "description": "一句话描述事件内容（必须填写，概括事件的核心内容和结果）",
+      "cause": ["导致此事件的前置事件名（可选）"],
+      "effect": ["该事件导致的后果或影响（可选）"],
+      "importance": "重要性：高/中/低（从文本推断，关键转折点=高，普通情节=中，细节=低）"
     }
   ],
   "summary": "一句话概括文本内容"
@@ -133,41 +175,7 @@ def _call_deepseek(text: str) -> str:
     return _call_deepseek_with_prompt(SYSTEM_PROMPT, text)
 
 
-def _parse_response(raw: str) -> dict:
-    """
-    解析 AI 返回的 JSON，带多种容错策略。
-    """
-    # 策略 1：直接解析
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError:
-        pass
-
-    # 策略 2：提取 ```json ... ``` 中的内容
-    match = re.search(r"```json\s*(.*?)\s*```", raw, re.DOTALL)
-    if match:
-        try:
-            return json.loads(match.group(1))
-        except json.JSONDecodeError:
-            pass
-
-    # 策略 3：提取第一个 { ... } 块
-    match = re.search(r"\{.*\}", raw, re.DOTALL)
-    if match:
-        try:
-            return json.loads(match.group(0))
-        except json.JSONDecodeError:
-            pass
-
-    raise ValueError("所有解析策略均失败")
-
-
 # ── 后处理：引用校验 + 模糊匹配 ──────────────────────────────
-
-def _normalize_name(name: str) -> str:
-    """去除括号内容和空格，用于模糊匹配。"""
-    return re.sub(r'[（\(][^）\)]*[）\)]', '', name).strip()
-
 
 def _build_name_map(characters: list) -> dict[str, str]:
     """构建 {别名/标准名: 标准名} 映射表。"""
@@ -257,8 +265,33 @@ def _merge_group(group: list[dict]) -> dict:
 
 
 def _is_name_pair(a: str, b: str) -> bool:
-    """判断两个 normalized name 是否应该合并（子串匹配）。"""
-    return bool(a and b and (a in b or b in a))
+    """
+    判断两个 normalized name 是否应该合并（子串匹配）。
+    
+    优化：
+    1. 添加最小长度限制（≥2字符），避免单字符误匹配
+    2. 保留合理的子串匹配（如"宝玉"匹配"贾宝玉"）
+    3. 添加长度差异限制，避免过度合并
+    """
+    if not a or not b:
+        return False
+    
+    # 最小长度限制：至少2个字符
+    MIN_NAME_LENGTH = 2
+    if len(a) < MIN_NAME_LENGTH or len(b) < MIN_NAME_LENGTH:
+        return False
+    
+    # 长度差异限制：避免过度合并（如"林"合并"林黛玉"）
+    # 如果一个名字是另一个名字的子串，长度差异不能超过60%
+    if a in b or b in a:
+        shorter = min(len(a), len(b))
+        longer = max(len(a), len(b))
+        # 长度差异超过60%则不合并
+        if shorter / longer < 0.4:
+            return False
+        return True
+    
+    return False
 
 
 def _find_clusters(characters: list) -> list[list[int]]:
@@ -381,11 +414,13 @@ JSON 结构：
   "events": [
     {{
       "name": "事件名（4-8字概括，如'宝黛初见'）",
-      "time": "时间（从文本推断，null 表示未知）",
+      "time": "时间（必须从文本推断，如'第X回'、'春天'，不要填 null）",
       "participants": ["参与人物名"],
-      "location": "发生地点（可选）",
-      "description": "一句话描述",
+      "location": "发生地点（引用设定名）",
+      "description": "一句话描述事件核心内容（必须填写）",
       "cause": ["前置事件名（可选）"],
+      "effect": ["该事件导致的后果（可选）"],
+      "importance": "重要性：高/中/低",
       "chapter": "{chapter_title}"
     }}
   ],
@@ -430,9 +465,67 @@ def _char_summary(c: dict) -> str:
 
 
 def _rank_characters(characters: list) -> tuple[list, list]:
-    """按关系数量排序，返回 (主要人物, 次要人物)。"""
-    ranked = sorted(characters, key=lambda c: len(c.get("relationships") or []), reverse=True)
-    return ranked[:_MAIN_CHAR_LIMIT], ranked[_MAIN_CHAR_LIMIT:]
+    """
+    多因素排序，返回 (主要人物, 次要人物)。
+    
+    优化：
+    1. 多因素排序：角色标签权重 + 关系数量 + 状态 + 重要性
+    2. 动态调整主要人物数量：
+       - 人物总数 ≤ 20：全部作为主要人物
+       - 人物总数 > 20：取前 20 个主要人物
+    """
+    if not characters:
+        return [], []
+    
+    def character_importance(c):
+        """计算人物重要性分数。"""
+        # 角色标签权重
+        role_tags = c.get("role_tags") or []
+        tag_weight = 0
+        if "主角" in role_tags:
+            tag_weight = 100
+        elif "女主" in role_tags or "男主" in role_tags:
+            tag_weight = 90
+        elif "反派" in role_tags:
+            tag_weight = 80
+        elif "配角" in role_tags:
+            tag_weight = 70
+        elif "导师" in role_tags or "伙伴" in role_tags:
+            tag_weight = 60
+        else:
+            tag_weight = 50
+        
+        # 关系数量权重（每条关系+1分，上限30分）
+        rel_count = len(c.get("relationships") or [])
+        rel_weight = min(rel_count, 30)
+        
+        # 状态权重
+        status = c.get("status", "活跃")
+        status_weight = 0
+        if status == "活跃":
+            status_weight = 10
+        elif status == "失踪":
+            status_weight = 5
+        elif status == "已故":
+            status_weight = 3
+        else:
+            status_weight = 1
+        
+        # 总分 = 角色标签权重 * 10 + 关系权重 + 状态权重
+        total_score = tag_weight * 10 + rel_weight + status_weight
+        return total_score
+    
+    # 按重要性分数排序
+    ranked = sorted(characters, key=character_importance, reverse=True)
+    
+    # 动态调整主要人物数量
+    total_chars = len(characters)
+    if total_chars <= 20:
+        # 人物总数 ≤ 20：全部作为主要人物
+        return ranked, []
+    else:
+        # 人物总数 > 20：取前 20 个主要人物
+        return ranked[:20], ranked[20:]
 
 
 def _group_by_faction(chars: list) -> dict[str, list[str]]:
@@ -454,9 +547,56 @@ def _format_faction_groups(groups: dict[str, list[str]]) -> str:
 
 
 def _dedupe_relationships(characters: list) -> list[str]:
-    """提取并去重所有人物关系，返回 ['A—关系—B', ...] 格式。"""
+    """
+    提取并去重所有人物关系，返回 ['A—关系—B', ...] 格式。
+    
+    优化：
+    1. 按关系重要性排序，保留最重要的 30 条关系
+    2. 优先保留主角相关的关系
+    3. 关系类型权重：恋人(10) > 父子/母子(9) > 师徒(8) > 敌对(7) > 朋友(6) > 其他(5)
+    """
+    # 构建人物重要性映射
+    char_importance = {}
+    for c in characters:
+        name = c.get("name", "?")
+        role_tags = c.get("role_tags") or []
+        importance = 0
+        if "主角" in role_tags:
+            importance = 100
+        elif "女主" in role_tags or "男主" in role_tags:
+            importance = 90
+        elif "反派" in role_tags:
+            importance = 80
+        elif "配角" in role_tags:
+            importance = 70
+        else:
+            importance = 50
+        char_importance[name] = importance
+    
+    # 关系类型权重
+    relationship_weights = {
+        "恋人": 10,
+        "夫妻": 10,
+        "父子": 9,
+        "母子": 9,
+        "父女": 9,
+        "母女": 9,
+        "师徒": 8,
+        "敌对": 7,
+        "朋友": 6,
+        "主仆": 5,
+        "同门": 5,
+        "兄弟": 5,
+        "姐妹": 5,
+        "君臣": 4,
+        "同事": 3,
+        "邻居": 2,
+        "其他": 1
+    }
+    
     seen = set()
-    result = []
+    relationships_with_importance = []
+    
     for c in characters:
         name = c.get("name", "?")
         for r in (c.get("relationships") or []):
@@ -465,8 +605,19 @@ def _dedupe_relationships(characters: list) -> list[str]:
             key = tuple(sorted([name, target]))
             if key not in seen:
                 seen.add(key)
-                result.append(f"{name}—{nature}—{target}")
-    return result[:30]
+                # 计算关系重要性
+                nature_weight = relationship_weights.get(nature, 1)
+                # 关系重要性 = 源人物重要性 + 目标人物重要性 + 关系类型权重
+                source_importance = char_importance.get(name, 50)
+                target_importance = char_importance.get(target, 50)
+                total_importance = source_importance + target_importance + nature_weight
+                relationships_with_importance.append((f"{name}—{nature}—{target}", total_importance))
+    
+    # 按重要性排序
+    relationships_with_importance.sort(key=lambda x: x[1], reverse=True)
+    
+    # 提取前30条最重要的关系
+    return [rel[0] for rel in relationships_with_importance[:30]]
 
 
 def _setting_summary(s: dict) -> str:
@@ -513,9 +664,14 @@ def _build_chapter_context(known_characters: list, known_settings: list,
 
 
 def analyze_chapter(text: str, known_characters: list = None, known_settings: list = None,
-                     known_events: list = None, chapter_title: str = None) -> dict:
+                     known_events: list = None, chapter_title: str = None,
+                     context_before_summary: str = None) -> dict:
     """
     分析单个章节，携带已知人物/设定/事件上下文。
+
+    优化（DeepSeek 建议）：
+    1. 添加 context_before_summary 参数，传递前文摘要
+    2. 提升跨块实体链接的准确性
 
     Args:
         text: 章节文本
@@ -523,16 +679,22 @@ def analyze_chapter(text: str, known_characters: list = None, known_settings: li
         known_settings: 已知设定列表
         known_events: 已知事件列表（之前章节提取的）
         chapter_title: 当前章节标题（填入 events.chapter 字段）
+        context_before_summary: 前文摘要（用于跨块实体链接）
 
     Returns:
         本章的分析结果 dict（characters, settings, events, chapter_summary）
     """
     context_text = _build_chapter_context(known_characters, known_settings, known_events)
 
-    # 构建 prompt
-    system_prompt = CHAPTER_SYSTEM_PROMPT.format(
-        context=context_text,
-        chapter_title=chapter_title or "未知章节",
+    # 添加前文摘要（DeepSeek 建议）
+    if context_before_summary:
+        context_text = f"{context_text}\n\n前情摘要：{context_before_summary}"
+
+    # 构建 prompt（用 replace 而非 format，避免 context 中的花括号导致 KeyError）
+    system_prompt = CHAPTER_SYSTEM_PROMPT.replace(
+        "{context}", context_text
+    ).replace(
+        "{chapter_title}", chapter_title or "未知章节"
     )
 
     # 调用 API
@@ -549,16 +711,136 @@ def analyze_chapter(text: str, known_characters: list = None, known_settings: li
     return result
 
 
+def generate_context_summary(analysis_result: dict, max_length: int = 200) -> str:
+    """
+    从前一个块的分析结果生成前文摘要（DeepSeek 建议）。
+
+    用于 context_before_summary，帮助跨块实体链接。
+
+    优化：
+    1. 人物按重要性排序（角色标签、关系数量、状态）
+    2. 包含身份描述，而不仅仅是名字
+    3. 设定和事件也按重要性排序
+
+    Args:
+        analysis_result: 前一个块的分析结果
+        max_length: 摘要最大长度
+
+    Returns:
+        前文摘要字符串
+    """
+    parts = []
+
+    # 提取人物摘要（按重要性排序）
+    characters = analysis_result.get("characters", [])
+    if characters:
+        # 按重要性排序：主角 > 女主 > 男主 > 反派 > 配角，然后按关系数量
+        def char_importance(c):
+            role_tags = c.get("role_tags") or []
+            rel_count = len(c.get("relationships") or [])
+            status = c.get("status", "活跃")
+            # 角色标签权重
+            tag_weight = 0
+            if "主角" in role_tags:
+                tag_weight = 100
+            elif "女主" in role_tags or "男主" in role_tags:
+                tag_weight = 90
+            elif "反派" in role_tags:
+                tag_weight = 80
+            elif "配角" in role_tags:
+                tag_weight = 70
+            elif "导师" in role_tags or "伙伴" in role_tags:
+                tag_weight = 60
+            else:
+                tag_weight = 50
+            # 状态权重：活跃 > 失踪 > 已故 > 退场
+            status_weight = 0
+            if status == "活跃":
+                status_weight = 10
+            elif status == "失踪":
+                status_weight = 5
+            elif status == "已故":
+                status_weight = 3
+            else:
+                status_weight = 1
+            return (tag_weight, rel_count, status_weight)
+
+        sorted_chars = sorted(characters, key=char_importance, reverse=True)
+        # 取前5个主要人物，使用_char_summary生成带身份的摘要
+        main_chars = sorted_chars[:5]
+        char_summaries = [_char_summary(c) for c in main_chars]
+        parts.append(f"已出现人物：{'、'.join(filter(None, char_summaries))}")
+
+    # 提取设定摘要（按相关性排序）
+    settings = analysis_result.get("settings", [])
+    if settings:
+        # 按相关人物数量排序
+        def setting_importance(s):
+            rel_chars = len(s.get("related_characters") or [])
+            rel_settings = len(s.get("related_settings") or [])
+            return rel_chars + rel_settings
+
+        sorted_settings = sorted(settings, key=setting_importance, reverse=True)
+        # 取前3个设定
+        setting_summaries = [_setting_summary(s) for s in sorted_settings[:3]]
+        parts.append(f"已出现设定：{'、'.join(filter(None, setting_summaries))}")
+
+    # 提取事件摘要（按重要性排序）
+    events = analysis_result.get("events", [])
+    if events:
+        # 按重要性排序：高 > 中 > 低
+        def event_importance(e):
+            importance = e.get("importance", "中")
+            if importance == "高":
+                return 3
+            elif importance == "中":
+                return 2
+            else:
+                return 1
+
+        sorted_events = sorted(events, key=event_importance, reverse=True)
+        # 取前3个事件
+        event_summaries = []
+        for e in sorted_events[:3]:
+            name = e.get("name", "")
+            if name:
+                event_summaries.append(name)
+        parts.append(f"已发生事件：{'、'.join(filter(None, event_summaries))}")
+
+    # 提取章节摘要
+    chapter_summary = analysis_result.get("chapter_summary", "")
+    if chapter_summary:
+        parts.append(f"本章概要：{chapter_summary}")
+
+    # 合并并截断
+    summary = "；".join(parts)
+    if len(summary) > max_length:
+        summary = summary[:max_length - 3] + "..."
+
+    return summary
+
+
 def _call_deepseek_with_prompt(system_prompt: str, text: str) -> str:
     """
     用自定义 system prompt 调用 DeepSeek API，带指数退避重试。
     仅对网络错误和限流（429/5xx）重试，4xx 客户端错误直接失败。
+
+    优化：
+    1. 添加请求体大小检查
+    2. 添加内存使用监控
+    3. 改进错误处理
     """
     if not DEEPSEEK_API_KEY:
         raise ValueError(
             "未配置 API Key！请设置环境变量 STORY_WIKI_API_KEY 或在 .env 文件中配置"
         )
 
+    # 检查文本长度
+    if len(text) > MAX_TEXT_LENGTH:
+        text = text[:MAX_TEXT_LENGTH]
+        print(f"[优化] 文本过长，已截取前 {MAX_TEXT_LENGTH} 字进行分析")
+
+    # 构建请求
     url = f"{DEEPSEEK_BASE_URL.rstrip('/')}/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
@@ -574,10 +856,24 @@ def _call_deepseek_with_prompt(system_prompt: str, text: str) -> str:
         "max_tokens": MAX_TOKENS,
     }
 
+    # 检查请求体大小
+    is_ok, size_message = _check_request_size(payload)
+    if not is_ok:
+        raise ValueError(size_message)
+    if size_message:
+        print(f"  {size_message}")
+
+    # 显示内存使用情况
+    memory = _get_memory_usage()
+    if memory["rss_mb"] > 0:
+        print(f"  [内存] 当前使用: {memory['rss_mb']:.1f}MB")
+
     last_error = None
     for attempt in range(MAX_RETRIES):
         try:
-            response = requests.post(url, headers=headers, json=payload, timeout=120)
+            # 发送请求
+            print(f"  [API] 发送请求... (尝试 {attempt + 1}/{MAX_RETRIES})")
+            response = requests.post(url, headers=headers, json=payload, timeout=180)
 
             # 限流或服务端错误 → 重试
             if response.status_code == 429 or response.status_code >= 500:
@@ -590,7 +886,15 @@ def _call_deepseek_with_prompt(system_prompt: str, text: str) -> str:
 
             response.raise_for_status()
             data = response.json()
-            return data["choices"][0]["message"]["content"].strip()
+
+            # 检查响应格式
+            if "choices" not in data or not data["choices"]:
+                raise ValueError("API 返回格式错误：缺少 choices 字段")
+
+            content = data["choices"][0]["message"]["content"].strip()
+            print(f"  [API] 响应成功，长度: {len(content)} 字")
+
+            return content
 
         except requests.ConnectionError as e:
             last_error = e
@@ -600,6 +904,15 @@ def _call_deepseek_with_prompt(system_prompt: str, text: str) -> str:
                 time.sleep(delay)
                 continue
             raise RuntimeError("无法连接到 API，请检查网络或 VPN")
+
+        except requests.Timeout as e:
+            last_error = e
+            if attempt < MAX_RETRIES - 1:
+                delay = RETRY_BASE_DELAY * (2 ** attempt)
+                print(f"  ⚠️ 请求超时，{delay}s 后重试...")
+                time.sleep(delay)
+                continue
+            raise RuntimeError("API 请求超时，请稍后重试")
 
     # 所有重试用尽
     raise RuntimeError(f"API 调用失败（已重试 {MAX_RETRIES} 次）: {last_error}")

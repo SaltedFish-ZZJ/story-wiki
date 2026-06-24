@@ -3,11 +3,7 @@ Story Wiki - 增量分析功能测试
 测试增量分析的核心逻辑：检测、合并、写入。
 """
 import json
-import sys
 from pathlib import Path
-
-# 添加项目根目录到 Python path
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.pipeline import (
     detect_existing_analysis,

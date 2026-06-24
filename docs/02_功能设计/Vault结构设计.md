@@ -9,7 +9,7 @@
 ## 目录结构
 
 ```
-D:\Obsidian_Work\myself_wiki\story_wiki\     ← Obsidian vault 根目录
+D:\Obsidian_Work\story_wiki\              ← Obsidian vault 根目录（独立 vault）
 ├── .obsidian/                     ← Obsidian 配置
 ├── _templates/                    ← 笔记模板
 │   ├── character.md

@@ -12,13 +12,13 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from src.config import CHAPTER_THRESHOLD, VAULT_DIR, INPUT_DIR
 from src.extractor import extract_text
 from src.analyzer import analyze_text
-from src.pipeline import analyze_chaptered
+from src.pipeline import analyze_chaptered, clear_cache
 from src.generator import generate_vault
 
 
 HELP_TEXT = """
 ╔══════════════════════════════════════════════════╗
-║         Story Wiki 分析 Agent v0.2               ║
+║         Story Wiki 分析 Agent v0.5               ║
 ╠══════════════════════════════════════════════════╣
 ║                                                  ║
 ║  使用方式：                                       ║
@@ -29,6 +29,7 @@ HELP_TEXT = """
 ║       /help    — 显示帮助                         ║
 ║       /list    — 列出已分析的作品                  ║
 ║       /vault   — 打开 vault 目录                  ║
+║       /cache   — 清除分析缓存                     ║
 ║       /quit    — 退出                             ║
 ║                                                  ║
 ╚══════════════════════════════════════════════════╝
@@ -167,6 +168,8 @@ def main():
             elif cmd == '/vault':
                 print(f"Vault 路径: {VAULT_DIR}")
                 print(f"用 Obsidian 打开此目录即可查看")
+            elif cmd == '/cache':
+                clear_cache()
             else:
                 print(f"未知命令: {user_input}，输入 /help 查看帮助")
             continue

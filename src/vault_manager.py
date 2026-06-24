@@ -268,6 +268,52 @@ class VaultManager(VaultManagerInterface):
             ],
         }
 
+    # ── 列出所有作品 ──────────────────────────────────────────────
+
+    def list_books(self) -> List[dict]:
+        """
+        列出 Vault 中所有已分析的作品。
+
+        扫描 vault 目录下包含 characters/ 子目录的文件夹，
+        返回每个作品的统计信息。
+
+        Returns:
+            [{"title": "红楼梦", "path": "...", "characters": 17, "events": 5, "settings": 3}, ...]
+        """
+        if not self.vault_dir.exists():
+            return []
+
+        books = []
+        for book_dir in sorted(self.vault_dir.iterdir()):
+            if not book_dir.is_dir():
+                continue
+            # 跳过 Obsidian 配置目录和隐藏目录
+            if book_dir.name.startswith(".") or book_dir.name == ".obsidian":
+                continue
+
+            char_dir = book_dir / "characters"
+            event_dir = book_dir / "events"
+            setting_dir = book_dir / "settings"
+
+            # 只统计包含至少一个卡片目录的作品
+            has_any = char_dir.exists() or event_dir.exists() or setting_dir.exists()
+            if not has_any:
+                continue
+
+            char_count = len(list(char_dir.glob("*.md"))) if char_dir.exists() else 0
+            event_count = len(list(event_dir.glob("*.md"))) if event_dir.exists() else 0
+            setting_count = len(list(setting_dir.glob("*.md"))) if setting_dir.exists() else 0
+
+            books.append({
+                "title": book_dir.name,
+                "path": str(book_dir),
+                "characters": char_count,
+                "events": event_count,
+                "settings": setting_count,
+            })
+
+        return books
+
     # ── 获取时间线 ──────────────────────────────────────────────
 
     def get_timeline(self) -> List[dict]:

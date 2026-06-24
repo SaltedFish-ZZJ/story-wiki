@@ -1,0 +1,29 @@
+[project]
+name = "story-wiki"
+version = "0.8.0"
+description = "AI 驱动的故事知识库系统"
+requires-python = ">=3.13"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+markers = [
+    "slow: 标记为慢速测试（可使用 -m 'not slow' 跳过）",
+    "integration: 标记为集成测试",
+]
+# 将项目根目录加入 Python 路径，消除 sys.path hack
+pythonpath = ["."]
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["tests/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if __name__ == .__main__.",
+]

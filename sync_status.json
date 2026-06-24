@@ -1,0 +1,73 @@
+{
+  "project": "Story Wiki",
+  "version": "v0.7.0",
+  "last_sync": "2026-06-22T11:30:00",
+  "sync_interval_minutes": 30,
+  "modules": {
+    "vault_manager": {
+      "file": "src/vault_manager.py",
+      "test_file": "tests/test_vault_manager.py",
+      "status": "pending",
+      "progress": 0,
+      "current_task": "等待开始",
+      "completed_tasks": [],
+      "issues": [],
+      "dependencies": ["config.py", "interfaces.py"],
+      "agent_id": null,
+      "start_time": null,
+      "estimated_completion": null
+    },
+    "plot_generator": {
+      "file": "src/plot_generator.py",
+      "test_file": "tests/test_plot_generator.py",
+      "status": "pending",
+      "progress": 0,
+      "current_task": "等待开始",
+      "completed_tasks": [],
+      "issues": [],
+      "dependencies": ["config.py", "interfaces.py", "vault_manager.py"],
+      "agent_id": null,
+      "start_time": null,
+      "estimated_completion": null
+    },
+    "chapter_generator": {
+      "file": "src/chapter_generator.py",
+      "test_file": "tests/test_chapter_generator.py",
+      "status": "pending",
+      "progress": 0,
+      "current_task": "等待开始",
+      "completed_tasks": [],
+      "issues": [],
+      "dependencies": ["config.py", "interfaces.py", "plot_generator.py"],
+      "agent_id": null,
+      "start_time": null,
+      "estimated_completion": null
+    },
+    "novel_logger": {
+      "file": "src/novel_logger.py",
+      "test_file": "tests/test_novel_logger.py",
+      "status": "pending",
+      "progress": 0,
+      "current_task": "等待开始",
+      "completed_tasks": [],
+      "issues": [],
+      "dependencies": ["config.py", "interfaces.py", "chapter_generator.py"],
+      "agent_id": null,
+      "start_time": null,
+      "estimated_completion": null
+    }
+  },
+  "sync_log": [
+    {
+      "time": "2026-06-22T11:30:00",
+      "action": "初始化",
+      "details": "创建接口规范文件和同步状态文件"
+    }
+  ],
+  "integration": {
+    "status": "pending",
+    "tests_passed": 0,
+    "tests_failed": 0,
+    "issues": []
+  }
+}

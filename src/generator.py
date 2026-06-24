@@ -5,9 +5,9 @@ Story Wiki - 笔记生成模块
 支持增量写入：更新已有文件而非覆盖。
 """
 from pathlib import Path
-from datetime import datetime
 
 from src.config import VAULT_DIR
+from src.utils import safe_filename as _safe_filename, frontmatter as _frontmatter, today_str as _today
 
 
 def generate_vault(analysis: dict, output_dir: Path = None) -> list[str]:
@@ -49,15 +49,15 @@ def generate_vault(analysis: dict, output_dir: Path = None) -> list[str]:
 
     generated_files.append(str(_write_book_index(title, summary, characters, settings, events, book_dir)))
 
+    # 生成独立时间线页面
+    timeline_path = generate_timeline_page(title, events, book_dir)
+    if timeline_path:
+        generated_files.append(str(timeline_path))
+
     return generated_files
 
 
 # ── 辅助函数 ──────────────────────────────────────────────────
-
-def _frontmatter(fields: list[str]) -> list[str]:
-    """构建 frontmatter 块（含开头结尾 ---），自动过滤 None 值。"""
-    return ["---"] + [f for f in fields if f is not None] + ["---"]
-
 
 def _wikilink_section(title: str, links: list[str]) -> list[str]:
     """构建一个 wikilink 列表段落，如 '## 关联人物' + '- [[xxx]]' 列表。"""
@@ -69,9 +69,6 @@ def _wikilink_section(title: str, links: list[str]) -> list[str]:
     lines.append("")
     return lines
 
-
-def _today() -> str:
-    return datetime.now().strftime("%Y-%m-%d")
 
 
 # ── 状态图标映射 ──────────────────────────────────────────────
@@ -122,13 +119,19 @@ def _build_setting_status_bar(setting: dict, related_chars: list) -> list[str]:
 def _build_event_status_bar(event: dict) -> list[str]:
     """
     构建事件状态栏。
-    格式：> 📍 大观园 | 👥 5人参与 | 🔗 前置：2个事件
+    格式：> 🔴 高 | 📍 大观园 | 👥 5人参与 | 🔗 前置：2个事件
     """
+    importance = event.get("importance") or ""
     location = event.get("location") or ""
     participants = event.get("participants") or []
     cause = event.get("cause") or []
 
+    importance_icons = {"高": "🔴", "中": "🟡", "低": "⚪"}
+
     parts = []
+    if importance:
+        icon = importance_icons.get(importance, "⚪")
+        parts.append(f"{icon} {importance}")
     if location:
         parts.append(f"📍 {location}")
     if participants:
@@ -144,7 +147,7 @@ def _build_event_status_bar(event: dict) -> list[str]:
 def _build_achievements(char_name: str, events: list) -> list[str]:
     """
     构建人物高光时刻列表。
-    从 events 中筛选该人物参与的事件。
+    从 events 中筛选该人物参与的事件，按重要性排序。
     """
     if not events:
         return []
@@ -157,14 +160,23 @@ def _build_achievements(char_name: str, events: list) -> list[str]:
     if not char_events:
         return []
 
-    lines = ["## 🏆 高光时刻"]
-    for e in char_events[:8]:  # 最多显示 8 个
+    # 按重要性排序：高 > 中 > 低 > 未知
+    _importance_order = {"高": 3, "中": 2, "低": 1}
+    char_events.sort(
+        key=lambda e: _importance_order.get(e.get("importance") or "", 0),
+        reverse=True
+    )
+
+    lines = ["## 🏆 参与事件"]
+    for e in char_events[:10]:  # 最多显示 10 个
         name = e.get("name", "未知")
         desc = e.get("description") or ""
+        importance = e.get("importance") or ""
         # 截断过长描述
         if len(desc) > 30:
             desc = desc[:30] + "..."
-        lines.append(f"- [[events/{name}|{name}]] — {desc}")
+        importance_tag = f" [{importance}]" if importance else ""
+        lines.append(f"- [[events/{name}|{name}]]{importance_tag} — {desc}")
     lines.append("")
     return lines
 
@@ -229,6 +241,7 @@ def _write_character_card(char: dict, char_dir: Path, origin: str, events: list 
     # frontmatter
     fm = _frontmatter([
         "type: character",
+        "color: character",  # 用于 Graph View 节点颜色
         "source: analyzed",
         f"origin: {origin}",
         f"gender: {gender}",
@@ -298,6 +311,7 @@ def _write_setting_card(setting: dict, setting_dir: Path, origin: str) -> Path:
     # frontmatter
     fm = _frontmatter([
         "type: setting",
+        "color: setting",  # 用于 Graph View 节点颜色
         "source: analyzed",
         f"origin: {origin}",
         f"setting_type: {stype}",
@@ -347,15 +361,19 @@ def _write_event_card(event: dict, event_dir: Path, origin: str) -> Path:
     location = event.get("location") or ""
     description = event.get("description") or "暂无描述"
     cause = event.get("cause", []) or []
+    effect = event.get("effect", []) or []
     chapter = event.get("chapter") or ""
+    importance = event.get("importance") or ""
 
     # frontmatter
     fm = _frontmatter([
         "type: event",
+        "color: event",  # 用于 Graph View 节点颜色
         "source: analyzed",
         f"origin: {origin}",
         f"time: {time}",
         f"chapter: {chapter}" if chapter else None,
+        f"importance: {importance}" if importance else None,
         f"tags: [event]",
         f"created: {_today()}",
     ])
@@ -369,6 +387,12 @@ def _write_event_card(event: dict, event_dir: Path, origin: str) -> Path:
 
     # 状态栏
     body += _build_event_status_bar(event)
+
+    # 重要性标签
+    if importance:
+        importance_icons = {"高": "🔴", "中": "🟡", "低": "⚪"}
+        icon = importance_icons.get(importance, "⚪")
+        body += [f"{icon} **重要性**：{importance}", ""]
 
     # 时间和描述
     body += [
@@ -389,6 +413,10 @@ def _write_event_card(event: dict, event_dir: Path, origin: str) -> Path:
     # 前置事件（wikilink → events/）
     cause_links = [f"[[events/{c}|{c}]]" for c in cause]
     body += _wikilink_section("前置事件", cause_links)
+
+    # 后果/影响（wikilink → events/）
+    effect_links = [f"[[events/{e}|{e}]]" for e in effect]
+    body += _wikilink_section("后续影响", effect_links)
 
     content = "\n".join(fm) + "\n".join(body)
     filepath = event_dir / f"{_safe_filename(name)}.md"
@@ -511,13 +539,171 @@ def _build_mermaid_timeline(title: str, events: list) -> list[str]:
     return lines
 
 
-def _safe_filename(name: str) -> str:
-    """将名称转为安全的文件名（去除非法字符）。"""
-    illegal = '<>:"/\\|?*'
-    safe = name
-    for ch in illegal:
-        safe = safe.replace(ch, "_")
-    return safe.strip()
+# ── 独立时间线页面 ──────────────────────────────────────────────────
+
+def _sort_events_by_time(events: list) -> list:
+    """
+    按时间排序事件。
+
+    排序规则：
+    1. 有 chapter 字段的按章节号排序
+    2. 有 time 字段的按时间字符串排序
+    3. 无时间信息的排到最后
+    """
+    def _sort_key(e):
+        # 优先按 chapter 排序
+        chapter = e.get("chapter") or ""
+        # 尝试提取章节号（如"第三回"→3, "第12章"→12）
+        chapter_num = _extract_chapter_number(chapter)
+
+        # 其次按 time 排序
+        time_str = e.get("time") or ""
+
+        # 重要性作为次要排序（高>中>低）
+        importance = e.get("importance") or ""
+        _importance_order = {"高": 0, "中": 1, "低": 2}
+
+        return (chapter_num, time_str, _importance_order.get(importance, 3))
+
+    return sorted(events, key=_sort_key)
+
+
+def _extract_chapter_number(chapter: str) -> int:
+    """从章节标题中提取数字（如'第三回'→3, '第12章'→12）。"""
+    import re
+    if not chapter:
+        return 9999  # 无章节信息排到最后
+
+    # 尝试阿拉伯数字
+    m = re.search(r'(\d+)', chapter)
+    if m:
+        return int(m.group(1))
+
+    # 尝试中文数字
+    cn_nums = {
+        '零': 0, '一': 1, '二': 2, '三': 3, '四': 4,
+        '五': 5, '六': 6, '七': 7, '八': 8, '九': 9,
+        '十': 10, '百': 100,
+    }
+    # 简单中文数字解析（十以内）
+    for cn, num in cn_nums.items():
+        if cn in chapter:
+            return num
+
+    return 9999
+
+
+def _build_importance_groups(events: list) -> dict[str, list]:
+    """按重要性分组事件。"""
+    groups = {"高": [], "中": [], "低": [], "未分类": []}
+    for e in events:
+        imp = e.get("importance") or "未分类"
+        if imp not in groups:
+            imp = "未分类"
+        groups[imp].append(e)
+    return groups
+
+
+def generate_timeline_page(
+    title: str, events: list, book_dir: Path
+) -> Path:
+    """
+    生成独立的时间线页面 timeline.md。
+
+    特性：
+    1. 按章节/时间排序
+    2. 按重要性分组显示
+    3. 所有事件用 wikilink 可点击跳转
+    4. 含 Mermaid timeline 图
+    """
+    if not events:
+        return None
+
+    fm = _frontmatter([
+        "type: timeline",
+        "tags: [timeline]",
+        f"origin: {title}",
+        f"created: {_today()}",
+    ])
+
+    body = [
+        "",
+        f"# 📅 {title} — 时间线",
+        "",
+    ]
+
+    # ── Mermaid timeline 图 ──
+    mermaid = _build_mermaid_timeline(title, events)
+    if mermaid:
+        body += ["## 📊 时间线图", "", "```mermaid"]
+        body += mermaid
+        body += ["```", ""]
+
+    # ── 按重要性分组显示 ──
+    importance_groups = _build_importance_groups(events)
+
+    importance_labels = {
+        "高": ("🔴 重要事件", "高"),
+        "中": ("🟡 一般事件", "中"),
+        "低": ("⚪ 细节事件", "低"),
+        "未分类": ("⚪ 未分类事件", "未分类"),
+    }
+
+    for imp_key in ["高", "中", "低", "未分类"]:
+        group_events = importance_groups.get(imp_key) or []
+        if not group_events:
+            continue
+
+        label, imp_tag = importance_labels[imp_key]
+        body += [f"## {label}", ""]
+
+        # 按时间排序
+        sorted_events = _sort_events_by_time(group_events)
+
+        for e in sorted_events:
+            name = e.get("name", "未知")
+            time = e.get("time") or ""
+            chapter = e.get("chapter") or ""
+            participants = e.get("participants") or []
+            location = e.get("location") or ""
+            description = e.get("description") or ""
+
+            # 构建时间标签
+            time_parts = []
+            if chapter:
+                time_parts.append(chapter)
+            if time and time != "未知":
+                time_parts.append(time)
+            time_str = f" `{', '.join(time_parts)}`" if time_parts else ""
+
+            # 构建参与者标签
+            participants_str = ""
+            if participants:
+                links = "、".join(
+                    f"[[characters/{p}|{p}]]" for p in participants[:5]
+                )
+                participants_str = f" — {links}"
+
+            # 构建地点标签
+            location_str = ""
+            if location:
+                location_str = f" 📍[[settings/{location}|{location}]]"
+
+            # 主行
+            line = f"- [[events/{name}|{name}]]{time_str}{participants_str}{location_str}"
+            body.append(line)
+
+            # 描述行（缩进）
+            if description:
+                body.append(f"  > {description}")
+
+        body.append("")
+
+    content = "\n".join(fm) + "\n".join(body)
+    filepath = book_dir / "timeline.md"
+    filepath.write_text(content, encoding="utf-8")
+    return filepath
+
 
 
 # ── 增量写入功能 ──────────────────────────────────────────────────
@@ -797,7 +983,7 @@ def _parse_setting_md(content: str) -> dict:
 
 
 def _parse_event_md(content: str) -> dict:
-    """解析事件卡片 .md 文件。"""
+    """解析事件卡片 .md 文件，提取结构化数据。"""
     lines = content.strip().split('\n')
     event = {"type": "event"}
 
@@ -809,13 +995,78 @@ def _parse_event_md(content: str) -> dict:
     if not event.get("name"):
         return None
 
-    # 提取时间
+    # 提取 frontmatter 字段
+    in_frontmatter = False
     for line in lines:
-        if line.startswith('**时间**：'):
-            event["time"] = line.split('：', 1)[1].strip()
-            break
+        if line.strip() == '---':
+            in_frontmatter = not in_frontmatter
+            continue
+        if in_frontmatter:
+            if line.startswith('time:'):
+                event["time"] = line.split(':', 1)[1].strip()
+            elif line.startswith('importance:'):
+                event["importance"] = line.split(':', 1)[1].strip()
+            elif line.startswith('chapter:'):
+                event["chapter"] = line.split(':', 1)[1].strip()
+
+    # 提取正文字段
+    current_section = None
+    section_content = []
+
+    for line in lines:
+        if line.startswith('## '):
+            if current_section and section_content:
+                _assign_event_section(event, current_section, section_content)
+            current_section = line[3:].strip()
+            section_content = []
+        elif line.startswith('- '):
+            section_content.append(line[2:].strip())
+        elif current_section and line.strip() and not line.startswith('#') and not line.startswith('>'):
+            section_content.append(line.strip())
+
+    if current_section and section_content:
+        _assign_event_section(event, current_section, section_content)
 
     return event
+
+
+def _assign_event_section(event: dict, section: str, content: list):
+    """将解析的内容分配到事件卡片的对应字段。"""
+    section_lower = section.lower()
+
+    if '参与人物' in section_lower:
+        participants = []
+        for item in content:
+            # 解析 [[characters/xxx|xxx]] 格式
+            if '|' in item:
+                name = item.split('|')[-1].rstrip(']').strip('[')
+            else:
+                name = item.strip()
+            if name:
+                participants.append(name)
+        event["participants"] = participants
+    elif '前置事件' in section_lower:
+        causes = []
+        for item in content:
+            if '|' in item:
+                name = item.split('|')[-1].rstrip(']').strip('[')
+            else:
+                name = item.strip()
+            if name:
+                causes.append(name)
+        event["cause"] = causes
+    elif '后续影响' in section_lower:
+        effects = []
+        for item in content:
+            if '|' in item:
+                name = item.split('|')[-1].rstrip(']').strip('[')
+            else:
+                name = item.strip()
+            if name:
+                effects.append(name)
+        event["effect"] = effects
+    elif '描述' in section_lower or '简介' in section_lower:
+        event["description"] = '\n'.join(content)
 
 
 def _merge_character_data(old: dict, new: dict) -> dict:
@@ -896,5 +1147,17 @@ def _merge_event_data(old: dict, new: dict) -> dict:
     old_cause = set(old.get("cause") or [])
     new_cause = set(new.get("cause") or [])
     merged["cause"] = list(old_cause | new_cause)
+
+    # 后果/影响：合并去重
+    old_effect = set(old.get("effect") or [])
+    new_effect = set(new.get("effect") or [])
+    merged["effect"] = list(old_effect | new_effect)
+
+    # 重要性：取更高的
+    _importance_order = {"高": 3, "中": 2, "低": 1}
+    old_imp = _importance_order.get(old.get("importance") or "", 0)
+    new_imp = _importance_order.get(new.get("importance") or "", 0)
+    if old_imp > new_imp:
+        merged["importance"] = old.get("importance")
 
     return merged
