@@ -17,6 +17,9 @@ from src.interfaces import (
 from src.config import VAULT_DIR
 from src.utils import safe_filename as _safe_filename, today_str as _today
 from src.vault_manager import VaultManager
+from src.logging_setup import get_logger
+
+logger = get_logger("character_growth")
 
 # ── 成长事件类型定义 ──
 GROWTH_TYPES = {
@@ -175,7 +178,7 @@ class CharacterGrowthTracker:
         # 加载现有人物
         character = self.vault_manager.load_character(character_name)
         if character is None:
-            print(f"[警告] 人物不存在: {character_name}")
+            logger.warning(f"人物不存在: {character_name}")
             return
 
         # 合并成长事件（避免重复）
@@ -824,10 +827,10 @@ def _ai_analyze_growth_events(
         增强后的成长事件列表
     """
     try:
-        from src.analyzer import _call_deepseek_with_prompt
+        from src.api_client import call_api
     except ImportError:
         # 如果无法导入AI模块，返回原始事件
-        print("[警告] 无法导入AI模块，跳过AI分析")
+        logger.warning("无法导入AI模块，跳过AI分析")
         return growth_events
 
     # 如果没有事件，返回空列表
@@ -870,7 +873,7 @@ def _ai_analyze_growth_events(
 请分析这些成长事件。"""
 
     try:
-        response = _call_deepseek_with_prompt(system_prompt, user_content)
+        response = call_api(system_prompt, user_content)
 
         # 解析AI响应
         from src.utils import parse_ai_response
@@ -892,10 +895,10 @@ def _ai_analyze_growth_events(
                         event.significance = suggested_significance
                     break
 
-        print(f"[AI分析] 已分析 {character_name} 的 {len(growth_events)} 个成长事件")
+        logger.info(f"已分析 {character_name} 的 {len(growth_events)} 个成长事件")
 
-    except Exception as e:
-        print(f"[警告] AI分析失败: {e}")
+    except (RuntimeError, ValueError, KeyError) as e:
+        logger.warning(f"AI分析失败: {e}")
         # AI分析失败时返回原始事件
 
     return growth_events
@@ -977,4 +980,4 @@ def save_all_growth_events(
     for char_name, events in character_events.items():
         if events:
             tracker.save_growth_events(char_name, events)
-            print(f"[成长曲线] 已保存 {char_name} 的 {len(events)} 个成长事件")
+            logger.info(f"已保存 {char_name} 的 {len(events)} 个成长事件")

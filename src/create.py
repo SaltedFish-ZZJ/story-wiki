@@ -20,6 +20,8 @@ from src.config import (
     CREATE_DEFAULT_CHAPTERS,
     CREATE_WORDS_PER_CHAPTER,
     CREATE_MAX_RETRIES,
+    MIN_WORDS,
+    MAX_WORDS,
 )
 
 
@@ -30,6 +32,7 @@ def create_novel(
     outline_only: bool = False,
     chapter_range: Tuple[int, int] = None,
     outline_only_output: bool = False,
+    strict_quality: bool = False,
 ) -> dict:
     """
     核心创作管线：从知识库生成完整小说。
@@ -73,7 +76,7 @@ def create_novel(
 
     try:
         knowledge_base = vault.load_all_cards()
-    except Exception as e:
+    except (OSError, ValueError, RuntimeError) as e:
         return _error_result(book_title, f"加载知识库失败: {e}")
 
     char_count = len(knowledge_base.get("characters", []))
@@ -91,7 +94,7 @@ def create_novel(
 
     try:
         outline = plot_gen.generate_outline(book_title, knowledge_base)
-    except Exception as e:
+    except (RuntimeError, ValueError) as e:
         return _error_result(book_title, f"生成大纲失败: {e}")
 
     print(f"  [OK] 大纲：「{outline.title}」")
@@ -147,8 +150,8 @@ def create_novel(
     print("[4/5] 开始生成...\n")
 
     chapter_gen_config = {
-        "min_words": 2000,
-        "max_words": 3000,
+        "min_words": MIN_WORDS,
+        "max_words": MAX_WORDS,
     }
     chapter_gen = ChapterGenerator(chapter_gen_config)
 
@@ -177,7 +180,7 @@ def create_novel(
             try:
                 content = chapter_gen.generate_chapter(chapter_num, outline, context, num_chapters)
                 break
-            except Exception as e:
+            except (RuntimeError, ValueError) as e:
                 if attempt < CREATE_MAX_RETRIES - 1:
                     delay = 2 ** attempt
                     print(f"  [WARN] 生成失败，{delay}s 后重试... ({e})")
@@ -194,22 +197,36 @@ def create_novel(
         if content is None:
             continue
 
-        # 质量检查（简化版，不阻塞）
-        quality_issues = []
-        try:
-            quality = chapter_gen.quality_check(content, characters)
-            if not quality.get("passed", True):
-                quality_issues = quality.get("issues", [])
-                # 只警告，不阻塞
-                if quality_issues:
-                    print(f"  [WARN] 质量检查发现问题（{len(quality_issues)} 个），继续生成...")
-        except Exception:
-            pass  # 质量检查失败不阻塞
+        # 质量检查（strict 模式下不通过会尝试重写一次）
+        if strict_quality:
+            try:
+                quality = chapter_gen.quality_check(content, characters)
+                if not quality.get("passed", True):
+                    issues = quality.get("issues", [])
+                    print(f"  [WARN] 质量检查发现问题（{len(issues)} 个），尝试重写...")
+                    # 重写一次
+                    retry_context = {
+                        **context,
+                        "quality_feedback": issues,
+                    }
+                    try:
+                        retry_content = chapter_gen.generate_chapter(
+                            chapter_num, outline, retry_context, num_chapters
+                        )
+                        if retry_content and retry_content.word_count > 0:
+                            content = retry_content
+                            print(f"  [OK] 重写成功（{content.word_count} 字）")
+                        else:
+                            print(f"  [WARN] 重写失败，使用原始版本")
+                    except (RuntimeError, ValueError) as e:
+                        print(f"  [WARN] 重写异常: {e}")
+            except (RuntimeError, ValueError) as e:
+                print(f"  [WARN] 质量检查异常: {e}")
 
         # 保存章节
         try:
             logger.save_chapter(chapter_num, content)
-        except Exception as e:
+        except (OSError, RuntimeError) as e:
             print(f"  [WARN] 保存章节失败: {e}")
 
         # 更新统计
@@ -227,7 +244,7 @@ def create_novel(
         output_file.write_text(merged_text, encoding="utf-8")
         output_dir = str(logger._novel_dir(book_title))
         print(f"  [OK] 已保存到 {output_dir}/novel.txt")
-    except Exception as e:
+    except (OSError, RuntimeError) as e:
         output_dir = str(logger._novel_dir(book_title))
         print(f"  [WARN] 合并输出失败: {e}")
 
@@ -293,7 +310,7 @@ def _display_outline(outline: PlotOutline, num_chapters: int):
     if outline.ending_direction:
         print(f"  结局走向：{outline.ending_direction}")
 
-    print(f"\n  总计：{num_chapters} 章，预计 {num_chapters * 2500} 字")
+    print(f"\n  总计：{num_chapters} 章，预计 {num_chapters * CREATE_WORDS_PER_CHAPTER} 字")
     print(f"{'═' * 50}\n")
 
 

@@ -20,9 +20,7 @@ from src.analyzer import (
     _resolve_name,
     _clean_character_refs,
     _clean_setting_refs,
-    _merge_group,
     _is_name_pair,
-    _find_clusters,
     _merge_similar_characters,
     _postprocess_result,
     _char_summary,
@@ -36,6 +34,7 @@ from src.analyzer import (
     analyze_text,
     analyze_chapter,
 )
+from src.name_matcher import _merge_group, _find_clusters
 
 
 # ═══════════════════════════════════════════════════════════════

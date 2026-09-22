@@ -682,7 +682,7 @@ class TestAnalyzeCharacterGrowth:
         assert len(curve.growth_events) == 2
         assert len(curve.growth_phases) > 0
 
-    @patch('src.analyzer._call_deepseek_with_prompt')
+    @patch('src.api_client.call_api')
     def testAI分析(self, mock_ai):
         """测试AI分析功能"""
         # 模拟AI响应

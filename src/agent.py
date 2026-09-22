@@ -9,11 +9,15 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.config import CHAPTER_THRESHOLD, VAULT_DIR, INPUT_DIR
+from src.config import CHAPTER_THRESHOLD, VAULT_DIR, INPUT_DIR, init_runtime
 from src.extractor import extract_text
 from src.analyzer import analyze_text
 from src.pipeline import analyze_chaptered, clear_cache
 from src.generator import generate_vault
+
+
+# 启动时显式初始化（创建目录）
+init_runtime(verbose=False)
 
 
 HELP_TEXT = """
@@ -342,7 +346,7 @@ def analyze_and_generate(text: str, title: str = None):
     print(f"\n📂 生成 Obsidian 笔记到: {VAULT_DIR}")
     try:
         files = generate_vault(analysis, VAULT_DIR)
-    except Exception as e:
+    except (RuntimeError, OSError) as e:
         print(f"❌ 生成失败: {e}")
         return
 

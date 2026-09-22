@@ -1,14 +1,38 @@
 # 敏感配置（API Key）
 .env
+.env.local
+*.key
 
 # Python
 __pycache__/
 *.pyc
 *.pyo
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.coverage
+htmlcov/
+.test-tmp/
+.venv/
+venv/
+
+# 小说原文（含版权作品和来源不明文件，禁止提交）
+# story/ 下是用于分析的小说 txt。使用者请自备文本放到该目录。
+story/
 
 # AI 分析中间状态（调试用，不需要版本控制）
 data/state/
 
+# 生成产物（体积大，可由源码重新生成）
+data/output/
+output/
+
 # Obsidian 配置（每台机器不同）
 vault/.obsidian/
-src/story/
+
+# 编辑器 / 系统
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

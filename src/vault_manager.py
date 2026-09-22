@@ -14,7 +14,10 @@ from src.interfaces import (
     Event,
 )
 from src.config import VAULT_DIR
+from src.logging_setup import get_logger
 from src.utils import safe_filename as _safe_filename, frontmatter as _frontmatter, today_str as _today
+
+logger = get_logger("vault_manager")
 
 
 # ── VaultManager ──────────────────────────────────────────────
@@ -58,6 +61,20 @@ class VaultManager(VaultManagerInterface):
     def _event_dir(self) -> Path:
         return self._book_dir() / "events"
 
+    def _find_card(self, category_dir: Path, name: str) -> Optional[Path]:
+        """在类别目录（含子文件夹）中查找卡片文件。"""
+        if not category_dir.exists():
+            return None
+        safe_name = _safe_filename(name)
+        # 先查根目录（兼容旧结构）
+        direct = category_dir / f"{safe_name}.md"
+        if direct.exists():
+            return direct
+        # 再递归搜索子文件夹
+        for md_file in category_dir.rglob(f"{safe_name}.md"):
+            return md_file
+        return None
+
     # ── 加载所有卡片 ──────────────────────────────────────────────
 
     def load_all_cards(self) -> Dict[str, List[dict]]:
@@ -78,19 +95,19 @@ class VaultManager(VaultManagerInterface):
         }
 
     def _load_cards_from_dir(self, directory: Path, card_type: str) -> List[dict]:
-        """从指定目录加载所有 .md 卡片。"""
+        """从指定目录（含子文件夹）加载所有 .md 卡片。"""
         if not directory.exists():
             return []
 
         cards = []
-        for md_file in sorted(directory.glob("*.md")):
+        for md_file in sorted(directory.rglob("*.md")):
             try:
                 content = md_file.read_text(encoding="utf-8")
                 card = self._parse_card(content, card_type)
                 if card:
                     cards.append(card)
-            except Exception as e:
-                print(f"[VaultManager] 读取卡片失败 {md_file}: {e}")
+            except (OSError, ValueError) as e:
+                logger.warning(f"读取卡片失败 {md_file}: {e}")
         return cards
 
     def _parse_card(self, content: str, card_type: str) -> Optional[dict]:
@@ -106,8 +123,10 @@ class VaultManager(VaultManagerInterface):
     # ── 加载单个卡片 ──────────────────────────────────────────────
 
     def load_character(self, name: str) -> Optional[Character]:
-        """加载人物卡片。"""
-        filepath = self._char_dir() / f"{_safe_filename(name)}.md"
+        """加载人物卡片（递归搜索子文件夹）。"""
+        filepath = self._find_card(self._char_dir(), name)
+        if not filepath:
+            return None
         return self._load_character_from_file(filepath)
 
     def _load_character_from_file(self, filepath: Path) -> Optional[Character]:
@@ -120,13 +139,15 @@ class VaultManager(VaultManagerInterface):
             if not data:
                 return None
             return _dict_to_character(data)
-        except Exception as e:
-            print(f"[VaultManager] 读取人物失败 {filepath}: {e}")
+        except (OSError, ValueError) as e:
+            logger.warning(f"读取人物失败 {filepath}: {e}")
             return None
 
     def load_setting(self, name: str) -> Optional[Setting]:
-        """加载设定卡片。"""
-        filepath = self._setting_dir() / f"{_safe_filename(name)}.md"
+        """加载设定卡片（递归搜索子文件夹）。"""
+        filepath = self._find_card(self._setting_dir(), name)
+        if not filepath:
+            return None
         return self._load_setting_from_file(filepath)
 
     def _load_setting_from_file(self, filepath: Path) -> Optional[Setting]:
@@ -139,13 +160,15 @@ class VaultManager(VaultManagerInterface):
             if not data:
                 return None
             return _dict_to_setting(data)
-        except Exception as e:
-            print(f"[VaultManager] 读取设定失败 {filepath}: {e}")
+        except (OSError, ValueError) as e:
+            logger.warning(f"读取设定失败 {filepath}: {e}")
             return None
 
     def load_event(self, name: str) -> Optional[Event]:
-        """加载事件卡片。"""
-        filepath = self._event_dir() / f"{_safe_filename(name)}.md"
+        """加载事件卡片（递归搜索子文件夹）。"""
+        filepath = self._find_card(self._event_dir(), name)
+        if not filepath:
+            return None
         return self._load_event_from_file(filepath)
 
     def _load_event_from_file(self, filepath: Path) -> Optional[Event]:
@@ -158,8 +181,8 @@ class VaultManager(VaultManagerInterface):
             if not data:
                 return None
             return _dict_to_event(data)
-        except Exception as e:
-            print(f"[VaultManager] 读取事件失败 {filepath}: {e}")
+        except (OSError, ValueError) as e:
+            logger.warning(f"读取事件失败 {filepath}: {e}")
             return None
 
     # ── 更新卡片 ──────────────────────────────────────────────────
@@ -172,8 +195,8 @@ class VaultManager(VaultManagerInterface):
             name: 人物名称
             updates: 更新字段字典，支持字段名与 Character 数据结构一致
         """
-        filepath = self._char_dir() / f"{_safe_filename(name)}.md"
-        if not filepath.exists():
+        filepath = self._find_card(self._char_dir(), name)
+        if not filepath:
             raise FileNotFoundError(f"人物卡片不存在: {name}")
 
         existing = self.load_character(name)
@@ -191,8 +214,8 @@ class VaultManager(VaultManagerInterface):
             name: 设定名称
             updates: 更新字段字典
         """
-        filepath = self._setting_dir() / f"{_safe_filename(name)}.md"
-        if not filepath.exists():
+        filepath = self._find_card(self._setting_dir(), name)
+        if not filepath:
             raise FileNotFoundError(f"设定卡片不存在: {name}")
 
         existing = self.load_setting(name)
@@ -210,8 +233,8 @@ class VaultManager(VaultManagerInterface):
             name: 事件名称
             updates: 更新字段字典
         """
-        filepath = self._event_dir() / f"{_safe_filename(name)}.md"
-        if not filepath.exists():
+        filepath = self._find_card(self._event_dir(), name)
+        if not filepath:
             raise FileNotFoundError(f"事件卡片不存在: {name}")
 
         existing = self.load_event(name)
@@ -300,9 +323,9 @@ class VaultManager(VaultManagerInterface):
             if not has_any:
                 continue
 
-            char_count = len(list(char_dir.glob("*.md"))) if char_dir.exists() else 0
-            event_count = len(list(event_dir.glob("*.md"))) if event_dir.exists() else 0
-            setting_count = len(list(setting_dir.glob("*.md"))) if setting_dir.exists() else 0
+            char_count = len(list(char_dir.rglob("*.md"))) if char_dir.exists() else 0
+            event_count = len(list(event_dir.rglob("*.md"))) if event_dir.exists() else 0
+            setting_count = len(list(setting_dir.rglob("*.md"))) if setting_dir.exists() else 0
 
             books.append({
                 "title": book_dir.name,
@@ -399,7 +422,7 @@ class VaultManager(VaultManagerInterface):
                 else:
                     return {"error": f"未知卡片类型: {card_type}"}
                 return {"success": True}
-            except Exception as e:
+            except (OSError, ValueError, KeyError, TypeError) as e:
                 return {"error": str(e)}
         elif action == "search":
             keyword = input_data.get("keyword", "")

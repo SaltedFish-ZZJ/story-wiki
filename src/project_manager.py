@@ -8,6 +8,9 @@ from src.interfaces import BaseModule
 from src.config import VAULT_DIR
 from src.vault_manager import VaultManager
 from src.utils import normalize_name
+from src.logging_setup import get_logger
+
+logger = get_logger("project_manager")
 
 
 class ProjectManager(BaseModule):
@@ -81,7 +84,8 @@ class ProjectManager(BaseModule):
                         for card in matches[card_type]:
                             card["book"] = book["title"]
                     results[book["title"]] = matches
-            except Exception:
+            except (OSError, ValueError, RuntimeError) as e:
+                logger.warning(f"搜索书籍 {book['title']} 失败: {e}")
                 continue
 
         return results
@@ -115,7 +119,8 @@ class ProjectManager(BaseModule):
                 for char in cards.get("characters", []):
                     char["book"] = book["title"]
                     all_characters.append(char)
-            except Exception:
+            except (OSError, ValueError, RuntimeError) as e:
+                logger.warning(f"加载 {book['title']} 人物失败: {e}")
                 continue
 
         if len(all_characters) < 2:
@@ -225,7 +230,7 @@ class ProjectManager(BaseModule):
         vm = self._create_vault_manager(book_title)
         try:
             cards = vm.load_all_cards()
-        except Exception:
+        except (OSError, ValueError):
             return None
 
         characters = cards.get("characters", [])
@@ -278,10 +283,9 @@ class ProjectManager(BaseModule):
                 for event in timeline:
                     event["book"] = book["title"]
                     all_events.append(event)
-            except Exception:
+            except (OSError, ValueError, RuntimeError) as e:
+                logger.warning(f"加载 {book['title']} 时间线失败: {e}")
                 continue
-
-        # 按时间排序（空时间排最后）
         all_events.sort(key=lambda e: e.get("time", "\uffff"))
         return all_events
 
@@ -331,7 +335,7 @@ class ProjectManager(BaseModule):
             else:
                 return {"success": False, "error": f"未知 action: {action}"}
 
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError, KeyError, TypeError) as e:
             return {"success": False, "error": str(e)}
 
     def validate(self, output_data: dict) -> bool:

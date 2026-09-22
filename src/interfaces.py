@@ -5,6 +5,7 @@ Story Wiki 模块接口规范
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
+from src.config import MIN_WORDS, MAX_WORDS
 
 
 @dataclass
@@ -323,7 +324,7 @@ class ChapterGeneratorInterface(BaseModule):
         chapter_num: int,
         outline: PlotOutline,
         context: dict,
-        total_chapters: int = 12
+        total_chapters: int = None
     ) -> ChapterContent:
         """
         生成章节内容
@@ -498,8 +499,8 @@ class QualityCheckerInterface(BaseModule):
     def check_word_count(
         self,
         content: ChapterContent,
-        min_words: int = 2000,
-        max_words: int = 3000
+        min_words: int = MIN_WORDS,
+        max_words: int = MAX_WORDS
     ) -> bool:
         """
         检查字数

@@ -587,6 +587,6 @@ class TestGenerateVaultIncremental:
         assert len(files) > 0
 
         # 验证合并结果
-        char_file = tmp_path / "增量测试" / "characters" / "角色A.md"
+        char_file = tmp_path / "增量测试" / "characters" / "其他人物" / "角色A.md"
         content = char_file.read_text(encoding="utf-8")
         assert "更长的身份描述" in content

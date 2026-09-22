@@ -6,6 +6,9 @@ Story Wiki - 章节切分模块
 """
 import re
 from dataclasses import dataclass, field
+from src.logging_setup import get_logger
+
+logger = get_logger("splitter")
 
 
 @dataclass
@@ -98,16 +101,16 @@ def split_chapters(text: str, chunk_size: int = DEFAULT_CHUNK_SIZE) -> list[Chap
     # 大文本提示
     text_len = len(text)
     if text_len > 100000:  # 10万字
-        print(f"[优化] 文本较长 ({text_len} 字)，开始智能切分...")
+        logger.info(f"文本较长 ({text_len} 字)，开始智能切分...")
 
     # 尝试按章节标题切分
     chapters = _split_by_pattern(text)
     if chapters:
-        print(f"[优化] 按章节标题切分成功，共 {len(chapters)} 章")
+        logger.info(f"按章节标题切分成功，共 {len(chapters)} 章")
         return chapters
 
     # 没有章节标记，按字数分块
-    print(f"[优化] 未检测到章节标记，按字数分块 (每块 {chunk_size} 字)")
+    logger.info(f"未检测到章节标记，按字数分块 (每块 {chunk_size} 字)")
     return _split_by_chunks(text, chunk_size)
 
 
@@ -194,13 +197,13 @@ def _try_pattern(text: str, pattern) -> list[Chapter]:
     for i, match in enumerate(matches_iter):
         matches.append(match)
         if i >= MAX_MATCHES - 1:
-            print(f"[优化] 警告：匹配数超过 {MAX_MATCHES}，可能不是有效的章节模式")
+            logger.warning(f"匹配数超过 {MAX_MATCHES}，可能不是有效的章节模式")
             break
 
     if len(matches) < 2:
         return []
 
-    print(f"[优化] 找到 {len(matches)} 个章节标记")
+    logger.info(f"找到 {len(matches)} 个章节标记")
 
     chapters = []
     for i, match in enumerate(matches):
@@ -211,7 +214,7 @@ def _try_pattern(text: str, pattern) -> list[Chapter]:
 
         # 进度提示
         if (i + 1) % 100 == 0:
-            print(f"[优化] 已处理 {i + 1}/{len(matches)} 个章节标记")
+            logger.info(f"已处理 {i + 1}/{len(matches)} 个章节标记")
 
     if not chapters:
         return []
@@ -307,7 +310,7 @@ def _split_by_chunks(text: str, chunk_size: int) -> list[Chapter]:
 
         # 进度提示
         if processed_paras % 1000 == 0:
-            print(f"[优化] 已处理 {processed_paras} 个段落，{total_chars} 字")
+            logger.info(f"已处理 {processed_paras} 个段落，{total_chars} 字")
 
     # 最后一块
     if current_text.strip():
@@ -317,7 +320,7 @@ def _split_by_chunks(text: str, chunk_size: int) -> list[Chapter]:
     for i, ch in enumerate(chapters):
         ch.index = i + 1
 
-    print(f"[优化] 分块完成，共 {len(chapters)} 个块，处理了 {processed_paras} 个段落")
+    logger.info(f"分块完成，共 {len(chapters)} 个块，处理了 {processed_paras} 个段落")
     return chapters
 
 
@@ -412,7 +415,7 @@ def _split_by_chunks_with_overlap(text: str, chunk_size: int = DEFAULT_CHUNK_SIZ
     for chunk in chunks:
         chunk.total_chunks_in_chapter = total_chunks
 
-    print(f"[优化] 重叠分块完成，共 {total_chunks} 个块，每块约 {chunk_size} 字，重叠 {overlap} 字")
+    logger.info(f"重叠分块完成，共 {total_chunks} 个块，每块约 {chunk_size} 字，重叠 {overlap} 字")
     return chunks
 
 

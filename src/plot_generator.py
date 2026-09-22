@@ -5,22 +5,21 @@ Story Wiki - 情节生成模块
 实现 PlotGeneratorInterface 接口。
 """
 import json
-import time
 from typing import Dict, List, Optional, Any
 
-import requests
-
+from src.api_client import call_api
 from src.config import (
     DEEPSEEK_API_KEY,
     DEEPSEEK_BASE_URL,
     DEEPSEEK_MODEL,
     MAX_TOKENS,
     TEMPERATURE,
-    MAX_RETRIES,
-    RETRY_BASE_DELAY,
 )
 from src.interfaces import PlotGeneratorInterface, PlotOutline
 from src.utils import parse_ai_response
+from src.logging_setup import get_logger
+
+logger = get_logger("plot_generator")
 
 
 # ── System Prompts ──
@@ -220,11 +219,19 @@ class PlotGenerator(PlotGeneratorInterface):
 
     def _validate_api_config(self):
         """验证 API 配置"""
-        api_key = self.config.get("api_key", DEEPSEEK_API_KEY) or DEEPSEEK_API_KEY
+        api_key = self.config.get("api_key", DEEPSEEK_API_KEY)
         if not api_key:
             raise ValueError(
                 "未配置 API Key！请设置环境变量 STORY_WIKI_API_KEY 或在 .env 文件中配置"
             )
+
+    # ── action 分发注册表 ──
+    ACTIONS = {
+        "generate": "_handle_generate",
+        "identify_gaps": "_handle_identify_gaps",
+        "validate": "_handle_validate",
+        "expand": "_handle_expand",
+    }
 
     def run(self, input_data: dict) -> dict:
         """
@@ -241,32 +248,38 @@ class PlotGenerator(PlotGeneratorInterface):
         Returns:
             操作结果 dict
         """
-        book_title = input_data.get("book_title", "")
-        knowledge_base = input_data.get("knowledge_base", {})
         action = input_data.get("action", "generate")
-
-        if action == "generate":
-            outline = self.generate_outline(book_title, knowledge_base)
-            return {"outline": outline, "success": True}
-        elif action == "identify_gaps":
-            timeline = input_data.get("timeline", [])
-            gaps = self.identify_gaps(timeline, knowledge_base)
-            return {"gaps": gaps, "success": True}
-        elif action == "validate":
-            outline = input_data.get("outline")
-            if not outline:
-                raise ValueError("validate 操作需要提供 outline 参数")
-            is_valid = self.validate_outline(outline, knowledge_base)
-            return {"is_valid": is_valid, "success": True}
-        elif action == "expand":
-            outline = input_data.get("outline")
-            gap = input_data.get("gap")
-            if not outline or not gap:
-                raise ValueError("expand 操作需要提供 outline 和 gap 参数")
-            expanded = self.expand_outline(outline, gap)
-            return {"outline": expanded, "success": True}
-        else:
+        handler_name = self.ACTIONS.get(action)
+        if not handler_name:
             raise ValueError(f"不支持的操作类型: {action}")
+        return getattr(self, handler_name)(input_data)
+
+    def _handle_generate(self, input_data: dict) -> dict:
+        outline = self.generate_outline(
+            input_data.get("book_title", ""), input_data.get("knowledge_base", {})
+        )
+        return {"outline": outline, "success": True}
+
+    def _handle_identify_gaps(self, input_data: dict) -> dict:
+        gaps = self.identify_gaps(
+            input_data.get("timeline", []), input_data.get("knowledge_base", {})
+        )
+        return {"gaps": gaps, "success": True}
+
+    def _handle_validate(self, input_data: dict) -> dict:
+        outline = input_data.get("outline")
+        if not outline:
+            raise ValueError("validate 操作需要提供 outline 参数")
+        is_valid = self.validate_outline(outline, input_data.get("knowledge_base", {}))
+        return {"is_valid": is_valid, "success": True}
+
+    def _handle_expand(self, input_data: dict) -> dict:
+        outline = input_data.get("outline")
+        gap = input_data.get("gap")
+        if not outline or not gap:
+            raise ValueError("expand 操作需要提供 outline 和 gap 参数")
+        expanded = self.expand_outline(outline, gap)
+        return {"outline": expanded, "success": True}
 
     def validate(self, output_data: dict) -> bool:
         """
@@ -588,7 +601,7 @@ class PlotGenerator(PlotGeneratorInterface):
 
     def _call_api(self, system_prompt: str, user_message: str) -> str:
         """
-        调用 DeepSeek API
+        调用 AI API（委托给 api_client.call_api，支持 config 覆盖）。
 
         Args:
             system_prompt: 系统提示词
@@ -597,75 +610,13 @@ class PlotGenerator(PlotGeneratorInterface):
         Returns:
             API 响应文本
         """
-        # 使用 .get(key, default) 模式，避免 .get() or default 吞掉 falsy 值
-        # 如果配置值存在但为空字符串，仍然使用默认值
-        api_key = self.config.get("api_key", DEEPSEEK_API_KEY) or DEEPSEEK_API_KEY
-        base_url = self.config.get("base_url", DEEPSEEK_BASE_URL) or DEEPSEEK_BASE_URL
-        model = self.config.get("model", DEEPSEEK_MODEL) or DEEPSEEK_MODEL
-        temperature = self.config.get("temperature", TEMPERATURE)
-        max_tokens = self.config.get("max_tokens", MAX_TOKENS)
-
-        url = f"{base_url.rstrip('/')}/v1/chat/completions"
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        }
-        payload = {
-            "model": model,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message},
-            ],
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-        }
-
-        last_error = None
-        for attempt in range(MAX_RETRIES):
-            try:
-                print(f"  [API] 发送请求... (尝试 {attempt + 1}/{MAX_RETRIES})")
-                response = requests.post(url, headers=headers, json=payload, timeout=180)
-
-                # 限流或服务端错误 → 重试
-                if response.status_code == 429 or response.status_code >= 500:
-                    if attempt < MAX_RETRIES - 1:
-                        delay = RETRY_BASE_DELAY * (2 ** attempt)
-                        print(f"  ⚠️ API 返回 {response.status_code}，{delay}s 后重试...")
-                        time.sleep(delay)
-                        continue
-                    response.raise_for_status()
-
-                response.raise_for_status()
-                data = response.json()
-
-                # 检查响应格式
-                if "choices" not in data or not data["choices"]:
-                    raise ValueError("API 返回格式错误：缺少 choices 字段")
-
-                content = data["choices"][0]["message"]["content"].strip()
-                print(f"  [API] 响应成功，长度: {len(content)} 字")
-
-                return content
-
-            except requests.ConnectionError as e:
-                last_error = e
-                if attempt < MAX_RETRIES - 1:
-                    delay = RETRY_BASE_DELAY * (2 ** attempt)
-                    print(f"  ⚠️ 网络连接失败，{delay}s 后重试...")
-                    time.sleep(delay)
-                    continue
-                raise RuntimeError("无法连接到 API，请检查网络或 VPN")
-
-            except requests.Timeout as e:
-                last_error = e
-                if attempt < MAX_RETRIES - 1:
-                    delay = RETRY_BASE_DELAY * (2 ** attempt)
-                    print(f"  ⚠️ 请求超时，{delay}s 后重试...")
-                    time.sleep(delay)
-                    continue
-                raise RuntimeError("API 请求超时，请稍后重试")
-
-        raise RuntimeError(f"API 调用失败（已重试 {MAX_RETRIES} 次）: {last_error}")
+        return call_api(
+            system_prompt,
+            user_message,
+            api_key=self.config.get("api_key", DEEPSEEK_API_KEY),
+            base_url=self.config.get("base_url", DEEPSEEK_BASE_URL),
+            model=self.config.get("model", DEEPSEEK_MODEL),
+        )
 
 
 # ── 工具函数 ──────────────────────────────────────────────────

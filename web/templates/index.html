@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Story Wiki</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+</head>
+<body>
+
+<!-- ── Navigation ─────────────────────────────────────────── -->
+<nav class="nav">
+    <span class="nav-brand">Story Wiki</span>
+    <div class="nav-links">
+        <a class="nav-link active" data-view="overview">概览</a>
+        <a class="nav-link" data-view="characters">人物</a>
+        <a class="nav-link" data-view="graph">关系图</a>
+        <a class="nav-link" data-view="timeline">时间线</a>
+    </div>
+</nav>
+
+<!-- ── Main Content ───────────────────────────────────────── -->
+<main class="main">
+
+    <!-- 概览页 -->
+    <section id="view-overview" class="view">
+        <div class="loading" id="overview-loading">
+            <div class="spinner"></div>加载中...
+        </div>
+        <div id="overview-content" class="hidden"></div>
+    </section>
+
+    <!-- 人物列表页 -->
+    <section id="view-characters" class="view hidden">
+        <div class="search-bar">
+            <input class="search-input" id="char-search" type="text" placeholder="搜索人物名称、身份、标签...">
+        </div>
+        <div class="loading" id="char-loading">
+            <div class="spinner"></div>加载中...
+        </div>
+        <div id="char-content" class="hidden"></div>
+    </section>
+
+    <!-- 关系图谱页 -->
+    <section id="view-graph" class="view hidden">
+        <div class="graph-controls">
+            <label>中心人物：</label>
+            <select id="graph-center">
+                <option value="">全部显示</option>
+            </select>
+        </div>
+        <div class="graph-container" id="graph-chart"></div>
+    </section>
+
+    <!-- 时间线页 -->
+    <section id="view-timeline" class="view hidden">
+        <div class="filter-row">
+            <label>重要性：</label>
+            <select id="tl-importance">
+                <option value="">全部</option>
+                <option value="高">高</option>
+                <option value="中">中</option>
+                <option value="低">低</option>
+            </select>
+            <label>人物：</label>
+            <select id="tl-character">
+                <option value="">全部</option>
+            </select>
+        </div>
+        <div class="loading" id="tl-loading">
+            <div class="spinner"></div>加载中...
+        </div>
+        <div id="tl-content" class="hidden"></div>
+    </section>
+
+</main>
+
+<!-- ── Detail Drawer ──────────────────────────────────────── -->
+<div class="drawer-overlay" id="drawer-overlay"></div>
+<div class="drawer" id="drawer">
+    <div class="drawer-header">
+        <span class="drawer-title" id="drawer-title"></span>
+        <button class="drawer-close" id="drawer-close">&times;</button>
+    </div>
+    <div class="drawer-body" id="drawer-body"></div>
+</div>
+
+<!-- ── JavaScript ─────────────────────────────────────────── -->
+<script>
+// ── State ──────────────────────────────────────────────────
+let currentBook = "";
+let bookData = { characters: {}, overview: null };
+let graphChart = null;
+let currentView = "overview";
+
+// ── API helpers ────────────────────────────────────────────
+async function api(path) {
+    const res = await fetch(path);
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    return res.json();
+}
+
+// ── Navigation ─────────────────────────────────────────────
+document.querySelectorAll(".nav-link").forEach(link => {
+    link.addEventListener("click", () => {
+        const view = link.dataset.view;
+        switchView(view);
+    });
+});
+
+function switchView(view) {
+    currentView = view;
+    document.querySelectorAll(".nav-link").forEach(l => l.classList.remove("active"));
+    document.querySelector(`.nav-link[data-view="${view}"]`).classList.add("active");
+    document.querySelectorAll(".view").forEach(v => v.classList.add("hidden"));
+    document.getElementById(`view-${view}`).classList.remove("hidden");
+
+    if (view === "graph" && graphChart) {
+        setTimeout(() => graphChart.resize(), 100);
+    }
+}
+
+// ── Init: load book list, pick first ───────────────────────
+async function init() {
+    const { books } = await api("/api/books");
+    if (books.length === 0) {
+        document.getElementById("overview-content").innerHTML =
+            '<div class="empty-state"><div class="empty-state-icon">📚</div><div class="empty-state-text">没有找到作品，请先运行分析生成数据</div></div>';
+        document.getElementById("overview-loading").classList.add("hidden");
+        document.getElementById("overview-content").classList.remove("hidden");
+        return;
+    }
+    currentBook = books[0].title;
+    loadOverview();
+    loadCharacters();
+    loadTimeline();
+    initGraph();
+}
+
+// ── Overview ───────────────────────────────────────────────
+async function loadOverview() {
+    const data = await api(`/api/books/${encodeURIComponent(currentBook)}/overview`);
+    bookData.overview = data;
+    const el = document.getElementById("overview-content");
+    el.innerHTML = `
+        <div class="page-header">
+            <h1 class="page-title">${esc(data.title)}</h1>
+            <p class="page-subtitle">${esc(data.summary.slice(0, 80))}...</p>
+        </div>
+        <div class="stats-row">
+            <div class="stat-card"><div class="stat-number">${data.stats.characters}</div><div class="stat-label">人物</div></div>
+            <div class="stat-card"><div class="stat-number">${data.stats.events}</div><div class="stat-label">事件</div></div>
+            <div class="stat-card"><div class="stat-number">${data.stats.settings}</div><div class="stat-label">设定</div></div>
+        </div>
+        <div class="section-title">核心人物</div>
+        <div class="char-grid">
+            ${data.top_characters.map(c => charCardHTML(c)).join("")}
+        </div>
+        <div class="section-title">作品简介</div>
+        <p style="font-size:15px;line-height:1.8;color:var(--text-secondary);max-width:720px">${esc(data.summary)}</p>
+    `;
+    // 绑定卡片点击
+    el.querySelectorAll(".char-card").forEach(card => {
+        card.addEventListener("click", () => openDrawer(card.dataset.name));
+    });
+    document.getElementById("overview-loading").classList.add("hidden");
+    el.classList.remove("hidden");
+}
+
+// ── Characters ─────────────────────────────────────────────
+async function loadCharacters(query = "") {
+    const url = `/api/books/${encodeURIComponent(currentBook)}/characters` + (query ? `?q=${encodeURIComponent(query)}` : "");
+    const data = await api(url);
+    const el = document.getElementById("char-content");
+
+    let html = `<p class="section-subtitle">共 ${data.total} 人</p>`;
+    for (const [group, chars] of Object.entries(data.characters)) {
+        if (chars.length === 0) continue;
+        const icon = group === "核心人物" ? "🔴" : group === "重要配角" ? "🟡" : "⚪";
+        html += `<div class="group-header">${icon} ${group}（${chars.length}人）</div>`;
+        html += `<div class="char-grid">${chars.map(c => charCardHTML(c)).join("")}</div>`;
+    }
+    if (data.total === 0) {
+        html = '<div class="empty-state"><div class="empty-state-text">没有找到匹配的人物</div></div>';
+    }
+    el.innerHTML = html;
+    el.querySelectorAll(".char-card").forEach(card => {
+        card.addEventListener("click", () => openDrawer(card.dataset.name));
+    });
+    document.getElementById("char-loading").classList.add("hidden");
+    el.classList.remove("hidden");
+
+    // 同步筛选器
+    populateCharacterSelects(data.characters);
+}
+
+// 搜索防抖
+let searchTimer;
+document.getElementById("char-search").addEventListener("input", e => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => loadCharacters(e.target.value), 300);
+});
+
+// ── Character Card HTML ────────────────────────────────────
+function charCardHTML(c) {
+    const tagClass = c.color === "character-protagonist" ? "tag-protagonist" :
+                     c.color === "character-supporting" ? "tag-supporting" : "tag-minor";
+    const tags = (c.role_tags || []).map(t => `<span class="tag ${tagClass}">${esc(t)}</span>`).join("");
+    return `<div class="char-card" data-name="${esc(c.name)}">
+        <div class="char-card-name">${esc(c.name)}</div>
+        <div class="char-card-identity">${esc(c.identity || "")}</div>
+        <div class="char-card-tags">${tags}</div>
+    </div>`;
+}
+
+// ── Graph ──────────────────────────────────────────────────
+async function initGraph() {
+    const container = document.getElementById("graph-chart");
+    graphChart = echarts.init(container);
+
+    // 填充中心人物下拉
+    const { characters } = await api(`/api/books/${encodeURIComponent(currentBook)}/characters`);
+    const select = document.getElementById("graph-center");
+    for (const [group, chars] of Object.entries(characters)) {
+        const optgroup = document.createElement("optgroup");
+        optgroup.label = group;
+        chars.forEach(c => {
+            const opt = document.createElement("option");
+            opt.value = c.name;
+            opt.textContent = c.name;
+            optgroup.appendChild(opt);
+        });
+        select.appendChild(optgroup);
+    }
+
+    select.addEventListener("change", () => loadGraph(select.value));
+    loadGraph("");
+    window.addEventListener("resize", () => graphChart && graphChart.resize());
+}
+
+async function loadGraph(center) {
+    const url = `/api/books/${encodeURIComponent(currentBook)}/graph` + (center ? `?center=${encodeURIComponent(center)}` : "");
+    const data = await api(url);
+
+    const option = {
+        tooltip: {
+            trigger: "item",
+            formatter: p => p.dataType === "node"
+                ? `<b>${p.name}</b><br/>${(p.data.role_tags || []).join(" · ")}`
+                : `${p.data.source} → ${p.data.target}<br/>${p.data.label || ""}`
+        },
+        series: [{
+            type: "graph",
+            layout: "force",
+            roam: true,
+            draggable: true,
+            label: { show: true, fontSize: 10, color: "#1d1d1f" },
+            edgeLabel: { show: false },
+            force: {
+                repulsion: 200,
+                gravity: 0.1,
+                edgeLength: [80, 200],
+                layoutAnimation: true
+            },
+            data: data.nodes.map(n => ({
+                ...n,
+                label: { show: n.symbolSize >= 16 }
+            })),
+            edges: data.edges.map(e => ({
+                source: e.source,
+                target: e.target,
+                label: { show: false, formatter: e.label },
+                lineStyle: { color: "#d1d1d6", width: 1, curveness: 0.1 }
+            })),
+            emphasis: {
+                focus: "adjacency",
+                lineStyle: { width: 3 },
+                itemStyle: { shadowBlur: 10, shadowColor: "rgba(0,0,0,0.2)" }
+            }
+        }]
+    };
+
+    graphChart.setOption(option, true);
+
+    // 点击节点 → 打开详情
+    graphChart.off("click");
+    graphChart.on("click", params => {
+        if (params.dataType === "node") {
+            openDrawer(params.name);
+        }
+    });
+}
+
+// ── Timeline ───────────────────────────────────────────────
+async function loadTimeline(importance = "", character = "") {
+    let url = `/api/books/${encodeURIComponent(currentBook)}/timeline`;
+    const params = [];
+    if (importance) params.push(`importance=${encodeURIComponent(importance)}`);
+    if (character) params.push(`character=${encodeURIComponent(character)}`);
+    if (params.length) url += "?" + params.join("&");
+
+    const data = await api(url);
+    const el = document.getElementById("tl-content");
+
+    if (data.events.length === 0) {
+        el.innerHTML = '<div class="empty-state"><div class="empty-state-text">没有匹配的事件</div></div>';
+    } else {
+        el.innerHTML = `<p class="section-subtitle">共 ${data.total} 个事件</p>
+            <div class="timeline">
+                ${data.events.map(e => {
+                    const dotClass = e.importance === "高" ? "timeline-dot-high" : e.importance === "中" ? "timeline-dot-medium" : "timeline-dot-low";
+                    const meta = [e.time, e.chapter, e.importance].filter(Boolean).join(" · ");
+                    const participants = (e.participants || []).map(p => p.name).join("、");
+                    return `<div class="timeline-item" data-event="${esc(e.name)}">
+                        <div class="timeline-dot ${dotClass}"></div>
+                        <div class="timeline-name">${esc(e.name)}</div>
+                        <div class="timeline-meta">${esc(meta)}${participants ? " · 👥 " + esc(participants) : ""}</div>
+                        <div class="timeline-summary">${esc(e.summary)}</div>
+                    </div>`;
+                }).join("")}
+            </div>`;
+    }
+
+    document.getElementById("tl-loading").classList.add("hidden");
+    el.classList.remove("hidden");
+}
+
+// 时间线筛选
+document.getElementById("tl-importance").addEventListener("change", refreshTimeline);
+document.getElementById("tl-character").addEventListener("change", refreshTimeline);
+function refreshTimeline() {
+    const imp = document.getElementById("tl-importance").value;
+    const char = document.getElementById("tl-character").value;
+    document.getElementById("tl-loading").classList.remove("hidden");
+    document.getElementById("tl-content").classList.add("hidden");
+    loadTimeline(imp, char);
+}
+
+// ── Populate character selects ─────────────────────────────
+function populateCharacterSelects(groups) {
+    const tlSelect = document.getElementById("tl-character");
+    // 清空旧选项（保留"全部"）
+    while (tlSelect.options.length > 1) tlSelect.remove(1);
+    for (const chars of Object.values(groups)) {
+        chars.forEach(c => {
+            const opt = document.createElement("option");
+            opt.value = c.name;
+            opt.textContent = c.name;
+            tlSelect.appendChild(opt);
+        });
+    }
+}
+
+// ── Drawer ─────────────────────────────────────────────────
+async function openDrawer(name) {
+    const data = await api(`/api/books/${encodeURIComponent(currentBook)}/characters/${encodeURIComponent(name)}`);
+    document.getElementById("drawer-title").textContent = data.name;
+
+    const statusLine = `${data.status === "活跃" ? "🟢" : data.status === "已故" ? "⚫" : "⚪"} ${data.status}`;
+    const factionLine = data.faction ? ` · ${data.faction}` : "";
+    const tagLine = (data.role_tags || []).join(" · ");
+
+    let html = `<div class="drawer-status">${statusLine}${factionLine} · ${tagLine}</div>`;
+
+    if (data.identity) {
+        html += `<div class="drawer-section"><div class="drawer-section-title">身份</div><p>${esc(data.identity)}</p></div>`;
+    }
+    if (data.personality) {
+        html += `<div class="drawer-section"><div class="drawer-section-title">性格</div><p>${esc(data.personality)}</p></div>`;
+    }
+    if (data.relationships && data.relationships.length > 0) {
+        html += `<div class="drawer-section"><div class="drawer-section-title">人际关系（${data.relationships.length}）</div>`;
+        data.relationships.slice(0, 20).forEach(r => {
+            html += `<a class="drawer-link" href="#" onclick="openDrawer('${esc(r.name)}');return false">${esc(r.name)}<span class="drawer-link-desc"> — ${esc(r.description)}</span></a>`;
+        });
+        if (data.relationships.length > 20) html += `<p style="color:var(--text-tertiary);font-size:13px;margin-top:4px">...还有 ${data.relationships.length - 20} 条</p>`;
+        html += `</div>`;
+    }
+    if (data.events && data.events.length > 0) {
+        html += `<div class="drawer-section"><div class="drawer-section-title">参与事件（${data.events.length}）</div>`;
+        data.events.slice(0, 15).forEach(e => {
+            html += `<span class="drawer-link">${esc(e.name)}<span class="drawer-link-desc"> — ${esc(e.description)}</span></span>`;
+        });
+        if (data.events.length > 15) html += `<p style="color:var(--text-tertiary);font-size:13px;margin-top:4px">...还有 ${data.events.length - 15} 个</p>`;
+        html += `</div>`;
+    }
+    if (data.quotes) {
+        html += `<div class="drawer-section"><div class="drawer-section-title">经典语录</div><p style="font-style:italic">${esc(data.quotes.slice(0, 300))}</p></div>`;
+    }
+
+    document.getElementById("drawer-body").innerHTML = html;
+    document.getElementById("drawer-overlay").classList.add("open");
+    document.getElementById("drawer").classList.add("open");
+}
+
+document.getElementById("drawer-close").addEventListener("click", closeDrawer);
+document.getElementById("drawer-overlay").addEventListener("click", closeDrawer);
+function closeDrawer() {
+    document.getElementById("drawer-overlay").classList.remove("open");
+    document.getElementById("drawer").classList.remove("open");
+}
+
+// ── Escape HTML ────────────────────────────────────────────
+function esc(str) {
+    if (!str) return "";
+    return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+// ── Boot ───────────────────────────────────────────────────
+init().catch(err => {
+    document.getElementById("overview-loading").innerHTML =
+        `<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">加载失败：${esc(err.message)}</div></div>`;
+});
+</script>
+
+</body>
+</html>

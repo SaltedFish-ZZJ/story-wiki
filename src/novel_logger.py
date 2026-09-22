@@ -15,6 +15,9 @@ from src.interfaces import (
 )
 from src.config import CREATE_OUTPUT_DIR as NOVELS_DIR
 from src.utils import safe_filename as _safe_filename
+from src.logging_setup import get_logger
+
+logger = get_logger("novel_logger")
 
 
 class NovelLogger(NovelLoggerInterface):
@@ -47,6 +50,15 @@ class NovelLogger(NovelLoggerInterface):
 
     # ── BaseModule 接口实现 ──────────────────────────────────────
 
+    # ── action 分发注册表 ──
+    ACTIONS = {
+        "save_chapter": "_handle_save_chapter",
+        "update_knowledge_log": "_handle_update_knowledge_log",
+        "merge_novel": "_handle_merge_novel",
+        "get_progress": "_handle_get_progress",
+        "resume_writing": "_handle_resume_writing",
+    }
+
     def run(self, input_data: dict) -> dict:
         """
         运行日志记录。
@@ -71,40 +83,36 @@ class NovelLogger(NovelLoggerInterface):
         if not action:
             return {"success": False, "error": "缺少 action 字段"}
 
+        handler_name = self.ACTIONS.get(action)
+        if not handler_name:
+            return {"success": False, "error": f"未知 action: {action}"}
+
         try:
-            if action == "save_chapter":
-                chapter_num = input_data["chapter_num"]
-                content = input_data["content"]
-                self.save_chapter(chapter_num, content)
-                return {"success": True, "message": f"第 {chapter_num} 章已保存"}
-
-            elif action == "update_knowledge_log":
-                changes = input_data["changes"]
-                self.update_knowledge_log(changes)
-                return {"success": True, "message": "知识库日志已更新"}
-
-            elif action == "merge_novel":
-                book_title = input_data.get("book_title", self.book_title)
-                result = self.merge_novel(book_title)
-                return {"success": True, "content": result}
-
-            elif action == "get_progress":
-                book_title = input_data.get("book_title", self.book_title)
-                result = self.get_progress(book_title)
-                return {"success": True, "progress": result}
-
-            elif action == "resume_writing":
-                book_title = input_data.get("book_title", self.book_title)
-                next_chapter = self.resume_writing(book_title)
-                return {"success": True, "next_chapter": next_chapter}
-
-            else:
-                return {"success": False, "error": f"未知 action: {action}"}
-
+            return getattr(self, handler_name)(input_data)
         except (KeyError, TypeError) as e:
             return {"success": False, "error": f"参数错误: {e}"}
-        except Exception as e:
+        except (RuntimeError, OSError) as e:
             return {"success": False, "error": f"执行失败: {e}"}
+
+    def _handle_save_chapter(self, input_data: dict) -> dict:
+        self.save_chapter(input_data["chapter_num"], input_data["content"])
+        return {"success": True, "message": f"第 {input_data['chapter_num']} 章已保存"}
+
+    def _handle_update_knowledge_log(self, input_data: dict) -> dict:
+        self.update_knowledge_log(input_data["changes"])
+        return {"success": True, "message": "知识库日志已更新"}
+
+    def _handle_merge_novel(self, input_data: dict) -> dict:
+        result = self.merge_novel(input_data.get("book_title", self.book_title))
+        return {"success": True, "content": result}
+
+    def _handle_get_progress(self, input_data: dict) -> dict:
+        result = self.get_progress(input_data.get("book_title", self.book_title))
+        return {"success": True, "progress": result}
+
+    def _handle_resume_writing(self, input_data: dict) -> dict:
+        next_chapter = self.resume_writing(input_data.get("book_title", self.book_title))
+        return {"success": True, "next_chapter": next_chapter}
 
     def validate(self, output_data: dict) -> bool:
         """验证输出数据是否合法。"""
@@ -158,7 +166,7 @@ class NovelLogger(NovelLoggerInterface):
             with open(path, "r", encoding="utf-8") as f:
                 return json.load(f)
         except (json.JSONDecodeError, IOError) as e:
-            print(f"[NovelLogger] 读取文件失败 {path}: {e}")
+            logger.warning(f"读取文件失败 {path}: {e}")
             return default if default is not None else {}
 
     def _write_json(self, path: Path, data):
@@ -168,7 +176,7 @@ class NovelLogger(NovelLoggerInterface):
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
         except IOError as e:
-            print(f"[NovelLogger] 写入文件失败 {path}: {e}")
+            logger.warning(f"写入文件失败 {path}: {e}")
             raise
 
     def _chapter_to_dict(self, content: ChapterContent) -> dict:
@@ -225,7 +233,7 @@ class NovelLogger(NovelLoggerInterface):
         # 更新进度
         self._update_progress(book_title, chapter_num, content.word_count)
 
-        print(f"[NovelLogger] 已保存第 {chapter_num} 章「{content.title}」"
+        logger.info(f"已保存第 {chapter_num} 章「{content.title}」"
               f"（{content.word_count} 字）")
 
     def _update_progress(self, book_title: str, chapter_num: int, word_count: int):
@@ -306,7 +314,7 @@ class NovelLogger(NovelLoggerInterface):
             + len(entry["new_events"])
             + len(entry["new_settings"])
         )
-        print(f"[NovelLogger] 知识库日志已更新：{total_new} 项新增变更")
+        logger.info(f"知识库日志已更新：{total_new} 项新增变更")
 
     def merge_novel(self, book_title: str) -> str:
         """
@@ -469,10 +477,10 @@ class NovelLogger(NovelLoggerInterface):
             return False
         try:
             shutil.rmtree(novel_dir)
-            print(f"[NovelLogger] 已删除小说日志: {book_title}")
+            logger.info(f"已删除小说日志: {book_title}")
             return True
         except OSError as e:
-            print(f"[NovelLogger] 删除失败: {e}")
+            logger.warning(f"删除失败: {e}")
             return False
 
     def get_chapter(self, book_title: str, chapter_num: int) -> Optional[ChapterContent]:

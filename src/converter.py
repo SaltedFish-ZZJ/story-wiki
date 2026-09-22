@@ -11,55 +11,11 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 
 from src.interfaces import ConverterInterface, ChapterContent
-from src.config import CREATE_OUTPUT_DIR as EXPORT_DIR
+from src.config import CREATE_OUTPUT_DIR as EXPORT_DIR, PLATFORM_RULES, SUPPORTED_PLATFORMS
 from src.utils import safe_filename as _safe_filename
+from src.logging_setup import get_logger
 
-
-# ── 平台格式规则 ──
-PLATFORM_RULES = {
-    "fanqie": {
-        "name": "番茄小说",
-        "paragraph_indent": "　　",  # 两个全角空格
-        "title_format": "第{num}章 {title}",
-        "prohibited_chars": ["**", "##", "```", "[[", "]]"],
-        "line_spacing": "\n",
-        "description": "番茄小说，流量大，适合新人",
-    },
-    "qidian": {
-        "name": "起点中文网",
-        "paragraph_indent": "　　",
-        "title_format": "第{num}章 {title}",
-        "prohibited_chars": [],
-        "line_spacing": "\n",
-        "description": "起点中文网，读者付费意愿强",
-    },
-    "jjwxc": {
-        "name": "晋江文学城",
-        "paragraph_indent": "　　",
-        "title_format": "第{num}章 {title}",
-        "prohibited_chars": [],
-        "line_spacing": "\n",
-        "description": "晋江文学城，女性读者为主",
-    },
-    "ciweimao": {
-        "name": "刺猬猫",
-        "paragraph_indent": "　　",
-        "title_format": "第{num}章 {title}",
-        "prohibited_chars": ["**", "```"],
-        "line_spacing": "\n",
-        "description": "刺猬猫，二次元轻小说平台",
-    },
-    "zongheng": {
-        "name": "纵横中文网",
-        "paragraph_indent": "　　",
-        "title_format": "第{num}章 {title}",
-        "prohibited_chars": [],
-        "line_spacing": "\n",
-        "description": "纵横中文网，老牌网文平台",
-    },
-}
-
-SUPPORTED_PLATFORMS = list(PLATFORM_RULES.keys())
+logger = get_logger("converter")
 
 
 class Converter(ConverterInterface):
@@ -96,6 +52,19 @@ class Converter(ConverterInterface):
         self.output_dir = Path(raw_dir) if raw_dir else EXPORT_DIR
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
+    # ── action 分发注册表 ──
+    ACTIONS = {
+        "to_platform": "_handle_to_platform",
+        "to_epub": "_handle_to_epub",
+        "to_epub_with_cover": "_handle_to_epub_with_cover",
+        "to_txt": "_handle_to_txt",
+        "to_markdown": "_handle_to_markdown",
+        "to_markdown_with_toc": "_handle_to_markdown_with_toc",
+        "to_all": "_handle_to_all",
+        "batch_export": "_handle_batch_export",
+        "to_all_platforms": "_handle_to_all_platforms",
+    }
+
     def run(self, input_data: dict) -> dict:
         """
         运行格式转换。
@@ -124,71 +93,59 @@ class Converter(ConverterInterface):
         if not action:
             return {"success": False, "error": "缺少 action 字段"}
 
+        handler_name = self.ACTIONS.get(action)
+        if not handler_name:
+            return {"success": False, "error": f"未知 action: {action}"}
+
         try:
-            if action == "to_platform":
-                content = input_data["content"]
-                platform = input_data["platform"]
-                result = self.convert_to_platform(content, platform)
-                return {"success": True, "content": result, "platform": platform}
-
-            elif action == "to_epub":
-                content = input_data["content"]
-                metadata = input_data.get("metadata", {})
-                result = self.convert_to_epub(content, metadata)
-                return {"success": True, "path": result}
-
-            elif action == "to_epub_with_cover":
-                content = input_data["content"]
-                metadata = input_data.get("metadata", {})
-                cover_image = input_data.get("cover_image")
-                result = self.create_epub_with_cover(content, metadata, cover_image)
-                return {"success": True, "path": result}
-
-            elif action == "to_txt":
-                content = input_data["content"]
-                result = self.convert_to_txt(content)
-                return {"success": True, "content": result}
-
-            elif action == "to_markdown":
-                content = input_data["content"]
-                metadata = input_data.get("metadata", {})
-                result = self.export_to_markdown(content, metadata)
-                return {"success": True, "path": result}
-
-            elif action == "to_markdown_with_toc":
-                content = input_data["content"]
-                metadata = input_data.get("metadata", {})
-                chapters = self._parse_chapters(content)
-                result = self.create_markdown_with_toc(chapters, metadata)
-                return {"success": True, "path": result}
-
-            elif action == "to_all":
-                content = input_data["content"]
-                metadata = input_data.get("metadata", {})
-                output_dir = input_data.get("output_dir")
-                result = self.convert_to_all(content, metadata, output_dir)
-                return {"success": True, "files": result}
-
-            elif action == "batch_export":
-                content = input_data["content"]
-                metadata = input_data.get("metadata", {})
-                formats = input_data.get("formats", [])
-                result = self.batch_export(content, metadata, formats)
-                return {"success": True, "files": result}
-
-            elif action == "to_all_platforms":
-                content = input_data["content"]
-                metadata = input_data.get("metadata", {})
-                result = self.export_to_all_platforms(content, metadata)
-                return {"success": True, "files": result}
-
-            else:
-                return {"success": False, "error": f"未知 action: {action}"}
-
+            return getattr(self, handler_name)(input_data)
         except (KeyError, TypeError) as e:
             return {"success": False, "error": f"参数错误: {e}"}
-        except Exception as e:
+        except (RuntimeError, OSError) as e:
             return {"success": False, "error": f"转换失败: {e}"}
+
+    def _handle_to_platform(self, input_data: dict) -> dict:
+        result = self.convert_to_platform(input_data["content"], input_data["platform"])
+        return {"success": True, "content": result, "platform": input_data["platform"]}
+
+    def _handle_to_epub(self, input_data: dict) -> dict:
+        result = self.convert_to_epub(input_data["content"], input_data.get("metadata", {}))
+        return {"success": True, "path": result}
+
+    def _handle_to_epub_with_cover(self, input_data: dict) -> dict:
+        result = self.create_epub_with_cover(
+            input_data["content"], input_data.get("metadata", {}), input_data.get("cover_image")
+        )
+        return {"success": True, "path": result}
+
+    def _handle_to_txt(self, input_data: dict) -> dict:
+        result = self.convert_to_txt(input_data["content"])
+        return {"success": True, "content": result}
+
+    def _handle_to_markdown(self, input_data: dict) -> dict:
+        result = self.export_to_markdown(input_data["content"], input_data.get("metadata", {}))
+        return {"success": True, "path": result}
+
+    def _handle_to_markdown_with_toc(self, input_data: dict) -> dict:
+        chapters = self._parse_chapters(input_data["content"])
+        result = self.create_markdown_with_toc(chapters, input_data.get("metadata", {}))
+        return {"success": True, "path": result}
+
+    def _handle_to_all(self, input_data: dict) -> dict:
+        result = self.convert_to_all(
+            input_data["content"], input_data.get("metadata", {}), input_data.get("output_dir")
+        )
+        return {"success": True, "files": result}
+
+    def _handle_batch_export(self, input_data: dict) -> dict:
+        result = self.batch_export(
+            input_data["content"], input_data.get("metadata", {}), input_data.get("formats", [])
+        )
+        return {"success": True, "files": result}
+
+    def _handle_to_all_platforms(self, input_data: dict) -> dict:
+        result = self.export_to_all_platforms(input_data["content"], input_data.get("metadata", {}))
+        return {"success": True, "files": result}
 
     def validate(self, output_data: dict) -> bool:
         """验证输出数据是否合法。"""
@@ -374,9 +331,9 @@ class Converter(ConverterInterface):
                 mime_type = mime_map.get(ext, "image/jpeg")
 
                 book.set_cover(f"cover{ext}", cover_data)
-                print(f"[Converter] 封面图片已嵌入: {cover_image_path}")
-            except Exception as e:
-                print(f"[Converter] 封面图片加载失败: {e}")
+                logger.info(f"封面图片已嵌入: {cover_image_path}")
+            except (OSError, IOError, ValueError) as e:
+                logger.warning(f"封面图片加载失败: {e}")
 
         # 添加 CSS 样式
         style = self._get_epub_css()
@@ -411,7 +368,7 @@ class Converter(ConverterInterface):
         # 写入文件
         epub.write_epub(str(epub_path), book, {})
 
-        print(f"[Converter] EPUB 已生成: {epub_path}")
+        logger.info(f"EPUB 已生成: {epub_path}")
         return str(epub_path)
 
     def add_epub_toc(
@@ -686,9 +643,9 @@ class Converter(ConverterInterface):
                 with open(file_path, "w", encoding="utf-8") as f:
                     f.write(content)
                 results[platform] = str(file_path)
-                print(f"[Converter] {PLATFORM_RULES[platform]['name']} 格式已导出: {file_path}")
-            except Exception as e:
-                print(f"[Converter] {PLATFORM_RULES[platform]['name']} 导出失败: {e}")
+                logger.info(f"{PLATFORM_RULES[platform]['name']} 格式已导出: {file_path}")
+            except (RuntimeError, OSError) as e:
+                logger.warning(f"{PLATFORM_RULES[platform]['name']} 导出失败: {e}")
 
         # EPUB 格式
         try:
@@ -698,8 +655,8 @@ class Converter(ConverterInterface):
             dest = out_dir / f"{safe_title}.epub"
             shutil.move(epub_path, dest)
             results["epub"] = str(dest)
-        except Exception as e:
-            print(f"[Converter] EPUB 导出失败: {e}")
+        except (RuntimeError, OSError) as e:
+            logger.warning(f"EPUB 导出失败: {e}")
 
         # TXT 格式
         try:
@@ -708,9 +665,9 @@ class Converter(ConverterInterface):
             with open(file_path, "w", encoding="utf-8") as f:
                 f.write(content)
             results["txt"] = str(file_path)
-            print(f"[Converter] TXT 格式已导出: {file_path}")
-        except Exception as e:
-            print(f"[Converter] TXT 导出失败: {e}")
+            logger.info(f"TXT 格式已导出: {file_path}")
+        except (RuntimeError, OSError) as e:
+            logger.warning(f"TXT 导出失败: {e}")
 
         return results
 
@@ -790,7 +747,7 @@ class Converter(ConverterInterface):
         with open(md_path, "w", encoding="utf-8") as f:
             f.write(md_content)
 
-        print(f"[Converter] Markdown 已导出: {md_path}")
+        logger.info(f"Markdown 已导出: {md_path}")
         return str(md_path)
 
     def create_markdown_with_toc(
@@ -872,7 +829,7 @@ class Converter(ConverterInterface):
         with open(md_path, "w", encoding="utf-8") as f:
             f.write(md_content)
 
-        print(f"[Converter] 带目录的 Markdown 已导出: {md_path}")
+        logger.info(f"带目录的 Markdown 已导出: {md_path}")
         return str(md_path)
 
     # ── 批量导出 ──────────────────────────────────────────────
@@ -946,7 +903,7 @@ class Converter(ConverterInterface):
                     with open(file_path, "w", encoding="utf-8") as f:
                         f.write(content)
                     results[fmt] = str(file_path)
-                    print(f"[Converter] {PLATFORM_RULES[fmt]['name']} 格式已导出: {file_path}")
+                    logger.info(f"{PLATFORM_RULES[fmt]['name']} 格式已导出: {file_path}")
 
                 elif fmt == "epub":
                     epub_metadata = {**metadata, "title": title}
@@ -954,7 +911,7 @@ class Converter(ConverterInterface):
                     dest = out_dir / f"{safe_title}.epub"
                     shutil.move(epub_path, dest)
                     results["epub"] = str(dest)
-                    print(f"[Converter] EPUB 已导出: {dest}")
+                    logger.info(f"EPUB 已导出: {dest}")
 
                 elif fmt == "txt":
                     content = self.convert_to_txt(novel_content)
@@ -962,18 +919,18 @@ class Converter(ConverterInterface):
                     with open(file_path, "w", encoding="utf-8") as f:
                         f.write(content)
                     results["txt"] = str(file_path)
-                    print(f"[Converter] TXT 已导出: {file_path}")
+                    logger.info(f"TXT 已导出: {file_path}")
 
                 elif fmt == "markdown":
                     md_path = self.export_to_markdown(novel_content, metadata)
                     results["markdown"] = md_path
-                    print(f"[Converter] Markdown 已导出: {md_path}")
+                    logger.info(f"Markdown 已导出: {md_path}")
 
                 else:
-                    print(f"[Converter] 跳过未知格式: {fmt}")
+                    logger.warning(f"跳过未知格式: {fmt}")
 
-            except Exception as e:
-                print(f"[Converter] {fmt} 导出失败: {e}")
+            except (RuntimeError, OSError) as e:
+                logger.warning(f"{fmt} 导出失败: {e}")
 
         return results
 
@@ -1026,9 +983,9 @@ class Converter(ConverterInterface):
                     "path": str(file_path),
                     "description": PLATFORM_RULES[platform].get("description", ""),
                 }
-                print(f"[Converter] {PLATFORM_RULES[platform]['name']} 格式已导出: {file_path}")
-            except Exception as e:
-                print(f"[Converter] {PLATFORM_RULES[platform]['name']} 导出失败: {e}")
+                logger.info(f"{PLATFORM_RULES[platform]['name']} 格式已导出: {file_path}")
+            except (RuntimeError, OSError) as e:
+                logger.warning(f"{PLATFORM_RULES[platform]['name']} 导出失败: {e}")
 
         return results
 

@@ -10,8 +10,11 @@ from typing import Dict, List, Optional, Any
 from collections import Counter
 
 from src.interfaces import QualityCheckerInterface, ChapterContent, Character, Event
-from src.config import DATA_DIR
+from src.config import DATA_DIR, MIN_WORDS, MAX_WORDS
 from src.utils import count_words
+from src.logging_setup import get_logger
+
+logger = get_logger("quality_checker")
 
 
 # ── 敏感词词库路径 ──
@@ -43,12 +46,21 @@ class QualityChecker(QualityCheckerInterface):
         self.config = config
         raw_path = config.get("sensitive_words_path", SENSITIVE_WORDS_FILE)
         self.sensitive_words_path = Path(raw_path)
-        self.min_words = config.get("min_words", 2000)
-        self.max_words = config.get("max_words", 3000)
+        self.min_words = config.get("min_words", MIN_WORDS)
+        self.max_words = config.get("max_words", MAX_WORDS)
         self.duplicate_threshold = config.get("duplicate_threshold", 0.6)
 
         # 缓存敏感词列表
         self._sensitive_words_cache: Optional[List[str]] = None
+
+    # ── action 分发注册表 ──
+    ACTIONS = {
+        "check_logic": "_handle_check_logic",
+        "check_words": "_handle_check_words",
+        "check_duplicates": "_handle_check_duplicates",
+        "check_sensitive": "_handle_check_sensitive",
+        "full_check": "_handle_full_check",
+    }
 
     def run(self, input_data: dict) -> dict:
         """
@@ -74,47 +86,53 @@ class QualityChecker(QualityCheckerInterface):
         if not action:
             return {"success": False, "error": "缺少 action 字段"}
 
+        handler_name = self.ACTIONS.get(action)
+        if not handler_name:
+            return {"success": False, "error": f"未知 action: {action}"}
+
         try:
-            if action == "check_logic":
-                content = input_data["content"]
-                characters = input_data.get("characters", [])
-                events = input_data.get("events", [])
-                result = self.check_logic_consistency(content, characters, events)
-                return {"success": True, "result": result}
-
-            elif action == "check_words":
-                content = input_data["content"]
-                min_words = input_data.get("min_words", self.min_words)
-                max_words = input_data.get("max_words", self.max_words)
-                passed = self.check_word_count(content, min_words, max_words)
-                return {"success": True, "passed": passed, "word_count": content.word_count}
-
-            elif action == "check_duplicates":
-                content = input_data["content"]
-                prev_chapters = input_data.get("previous_chapters", [])
-                has_duplicates = self.check_duplicates(content, prev_chapters)
-                return {"success": True, "has_duplicates": has_duplicates}
-
-            elif action == "check_sensitive":
-                content = input_data["content"]
-                sensitive_words = self.check_sensitive_words(content)
-                return {"success": True, "sensitive_words": sensitive_words}
-
-            elif action == "full_check":
-                content = input_data["content"]
-                characters = input_data.get("characters", [])
-                events = input_data.get("events", [])
-                prev_chapters = input_data.get("previous_chapters", [])
-                result = self.full_check(content, characters, events, prev_chapters)
-                return {"success": True, "result": result}
-
-            else:
-                return {"success": False, "error": f"未知 action: {action}"}
-
+            return getattr(self, handler_name)(input_data)
         except (KeyError, TypeError) as e:
             return {"success": False, "error": f"参数错误: {e}"}
-        except Exception as e:
+        except (RuntimeError, OSError) as e:
             return {"success": False, "error": f"检测失败: {e}"}
+
+    def _handle_check_logic(self, input_data: dict) -> dict:
+        result = self.check_logic_consistency(
+            input_data["content"],
+            input_data.get("characters", []),
+            input_data.get("events", []),
+        )
+        return {"success": True, "result": result}
+
+    def _handle_check_words(self, input_data: dict) -> dict:
+        content = input_data["content"]
+        passed = self.check_word_count(
+            content,
+            input_data.get("min_words", self.min_words),
+            input_data.get("max_words", self.max_words),
+        )
+        return {"success": True, "passed": passed, "word_count": content.word_count}
+
+    def _handle_check_duplicates(self, input_data: dict) -> dict:
+        has_duplicates = self.check_duplicates(
+            input_data["content"],
+            input_data.get("previous_chapters", []),
+        )
+        return {"success": True, "has_duplicates": has_duplicates}
+
+    def _handle_check_sensitive(self, input_data: dict) -> dict:
+        sensitive_words = self.check_sensitive_words(input_data["content"])
+        return {"success": True, "sensitive_words": sensitive_words}
+
+    def _handle_full_check(self, input_data: dict) -> dict:
+        result = self.full_check(
+            input_data["content"],
+            input_data.get("characters", []),
+            input_data.get("events", []),
+            input_data.get("previous_chapters", []),
+        )
+        return {"success": True, "result": result}
 
     def validate(self, output_data: dict) -> bool:
         """验证输出数据是否合法。"""
@@ -195,8 +213,8 @@ class QualityChecker(QualityCheckerInterface):
     def check_word_count(
         self,
         content: ChapterContent,
-        min_words: int = 2000,
-        max_words: int = 3000
+        min_words: int = MIN_WORDS,
+        max_words: int = MAX_WORDS
     ) -> bool:
         """
         检查字数是否在合理范围。
@@ -365,7 +383,7 @@ class QualityChecker(QualityCheckerInterface):
                         if line and not line.startswith("#"):
                             words.append(line)
             except IOError as e:
-                print(f"[QualityChecker] 读取敏感词词库失败: {e}")
+                logger.warning(f"读取敏感词词库失败: {e}")
 
         self._sensitive_words_cache = words
         return words

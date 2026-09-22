@@ -328,7 +328,7 @@ def test_simple_timeline_check():
     print("  [PASS] 简单时间线检查测试通过")
 
 
-@patch("src.chapter_generator._call_deepseek_with_prompt")
+@patch("src.chapter_generator.call_api")
 @patch("src.chapter_generator.DEEPSEEK_API_KEY", "test_key")
 def test_generate_chapter(mock_api):
     """测试章节生成（mock API）。"""
@@ -371,7 +371,7 @@ def test_generate_chapter(mock_api):
     print("  [PASS] 章节生成测试通过")
 
 
-@patch("src.chapter_generator._call_deepseek_with_prompt")
+@patch("src.chapter_generator.call_api")
 @patch("src.chapter_generator.DEEPSEEK_API_KEY", "test_key")
 def test_quality_check(mock_api):
     """测试质量检查（mock API）。"""
@@ -413,7 +413,7 @@ def test_quality_check(mock_api):
     print("  [PASS] 质量检查测试通过")
 
 
-@patch("src.chapter_generator._call_deepseek_with_prompt")
+@patch("src.chapter_generator.call_api")
 @patch("src.chapter_generator.DEEPSEEK_API_KEY", "test_key")
 def test_check_character_consistency(mock_api):
     """测试人物一致性检查（mock API）。"""
@@ -452,7 +452,7 @@ def test_check_character_consistency(mock_api):
     print("  [PASS] 人物一致性检查测试通过")
 
 
-@patch("src.chapter_generator._call_deepseek_with_prompt")
+@patch("src.chapter_generator.call_api")
 @patch("src.chapter_generator.DEEPSEEK_API_KEY", "test_key")
 def test_check_timeline_consistency(mock_api):
     """测试时间线一致性检查（mock API）。"""
@@ -491,7 +491,7 @@ def test_check_timeline_consistency(mock_api):
     print("  [PASS] 时间线一致性检查测试通过")
 
 
-@patch("src.chapter_generator._call_deepseek_with_prompt")
+@patch("src.chapter_generator.call_api")
 @patch("src.chapter_generator.DEEPSEEK_API_KEY", "test_key")
 def test_run(mock_api):
     """测试运行模块（mock API）。"""

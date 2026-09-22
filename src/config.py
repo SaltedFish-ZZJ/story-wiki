@@ -47,6 +47,7 @@ CACHE_DIR = STATE_DIR / "cache"
 MAX_TEXT_LENGTH = 400000     # DeepSeek 1M上下文，留余量设40万字（约40-80万token）
 TEMPERATURE = 0.3            # 低温度，输出更稳定
 MAX_TOKENS = 8192            # 最大输出 token（增加以容纳更多人物/设定）
+API_TIMEOUT = 180            # API 请求超时（秒）
 
 # ── 分章分析参数 ──
 CHAPTER_THRESHOLD = 5000     # 超过此字数自动启用分章分析
@@ -70,6 +71,10 @@ DUPLICATE_THRESHOLD = 0.6        # 重复度阈值
 # ── API 重试参数 ──
 MAX_RETRIES = 3                  # 最大重试次数
 RETRY_BASE_DELAY = 2             # 首次重试等待秒数（指数退避）
+
+# ── Prompt 截断长度 ──
+PROMPT_CONTENT_TRUNCATE = 2000   # 质量检查 prompt 中内容截断长度
+PROMPT_CONTENT_LARGE = 3000      # 大内容 prompt 截断长度
 
 # ── 内存和性能优化配置 ──
 # 大文件流式读取阈值（字节）
@@ -121,6 +126,52 @@ PLATFORM_RATES = {
     },
 }
 
+# ── 平台格式规则（供 converter.py 使用）──
+PLATFORM_RULES = {
+    "fanqie": {
+        "name": "番茄小说",
+        "paragraph_indent": "　　",  # 两个全角空格
+        "title_format": "第{num}章 {title}",
+        "prohibited_chars": ["**", "##", "```", "[[", "]]"],
+        "line_spacing": "\n",
+        "description": "番茄小说，流量大，适合新人",
+    },
+    "qidian": {
+        "name": "起点中文网",
+        "paragraph_indent": "　　",
+        "title_format": "第{num}章 {title}",
+        "prohibited_chars": [],
+        "line_spacing": "\n",
+        "description": "起点中文网，读者付费意愿强",
+    },
+    "jjwxc": {
+        "name": "晋江文学城",
+        "paragraph_indent": "　　",
+        "title_format": "第{num}章 {title}",
+        "prohibited_chars": [],
+        "line_spacing": "\n",
+        "description": "晋江文学城，女性读者为主",
+    },
+    "ciweimao": {
+        "name": "刺猬猫",
+        "paragraph_indent": "　　",
+        "title_format": "第{num}章 {title}",
+        "prohibited_chars": ["**", "```"],
+        "line_spacing": "\n",
+        "description": "刺猬猫，二次元轻小说平台",
+    },
+    "zongheng": {
+        "name": "纵横中文网",
+        "paragraph_indent": "　　",
+        "title_format": "第{num}章 {title}",
+        "prohibited_chars": [],
+        "line_spacing": "\n",
+        "description": "纵横中文网，老牌网文平台",
+    },
+}
+
+SUPPORTED_PLATFORMS = list(PLATFORM_RULES.keys())
+
 # ── 内存监控 ──
 def get_system_memory() -> dict:
     """获取系统内存信息。"""
@@ -131,7 +182,7 @@ def get_system_memory() -> dict:
             "available_gb": mem.available / 1024 / 1024 / 1024,
             "used_percent": mem.percent,
         }
-    except Exception:
+    except (OSError, AttributeError):
         return {"total_gb": 0, "available_gb": 0, "used_percent": 0}
 
 
@@ -144,7 +195,7 @@ def get_process_memory() -> dict:
             "rss_mb": mem.rss / 1024 / 1024,
             "vms_mb": mem.vms / 1024 / 1024,
         }
-    except Exception:
+    except (OSError, AttributeError):
         return {"rss_mb": 0, "vms_mb": 0}
 
 
@@ -163,8 +214,30 @@ def ensure_dirs():
     for d in [INPUT_DIR, STATE_DIR, VAULT_DIR]:
         d.mkdir(parents=True, exist_ok=True)
 
-# ── 启动时自动创建 ──
-ensure_dirs()
 
-# ── 启动时打印系统信息 ──
-print_memory_status()
+def validate_env() -> None:
+    """检查必要环境变量是否已设置，缺失时立即报错退出。"""
+    missing = []
+    if not DEEPSEEK_API_KEY:
+        missing.append("STORY_WIKI_API_KEY")
+    if missing:
+        msg = (
+            f"缺少必要环境变量: {', '.join(missing)}\n"
+            "请在项目根目录的 .env 文件中添加：\n"
+            "  STORY_WIKI_API_KEY=your_api_key_here\n"
+            "或通过环境变量设置。"
+        )
+        raise SystemExit(msg)
+
+
+def init_runtime(verbose: bool = True, check_env: bool = True) -> None:
+    """
+    在应用入口显式调用的初始化函数：创建目录 + 校验环境变量 + 打印内存状态。
+
+    修复了之前 import config 即执行副作用的问题，避免影响测试与 import 链。
+    """
+    ensure_dirs()
+    if check_env:
+        validate_env()
+    if verbose:
+        print_memory_status()

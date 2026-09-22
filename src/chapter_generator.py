@@ -7,15 +7,22 @@ import re
 import time
 from typing import Dict, List, Optional, Any
 
-from src.analyzer import _call_deepseek_with_prompt, _parse_response
-from src.config import DEEPSEEK_API_KEY, MAX_TOKENS, TEMPERATURE
-from src.utils import count_words
+from src.api_client import call_api
+from src.config import (
+    DEEPSEEK_API_KEY,
+    MAX_TOKENS, TEMPERATURE,
+    PROMPT_CONTENT_TRUNCATE, PROMPT_CONTENT_LARGE, MIN_WORDS, MAX_WORDS
+)
+from src.utils import count_words, parse_ai_response as _parse_response
 from src.interfaces import (
     ChapterGeneratorInterface,
     ChapterContent,
     Character,
     PlotOutline,
 )
+from src.logging_setup import get_logger
+
+logger = get_logger("chapter_generator")
 
 
 # ── System Prompt ──────────────────────────────────────────
@@ -122,8 +129,8 @@ class ChapterGenerator(ChapterGeneratorInterface):
                 - temperature: 温度参数（默认使用 config 中的值）
         """
         self.config = config or {}
-        self.min_words = self.config.get("min_words", 2000)
-        self.max_words = self.config.get("max_words", 3000)
+        self.min_words = self.config.get("min_words", MIN_WORDS)
+        self.max_words = self.config.get("max_words", MAX_WORDS)
         self.temperature = self.config.get("temperature", TEMPERATURE)
         self._validate_config()
 
@@ -167,9 +174,10 @@ class ChapterGenerator(ChapterGeneratorInterface):
             context = input_data.get("context", {})
             characters = input_data.get("characters", [])
             timeline = input_data.get("timeline", [])
+            total_chapters = input_data.get("total_chapters")
 
             # 生成章节内容
-            content = self.generate_chapter(chapter_num, outline, context)
+            content = self.generate_chapter(chapter_num, outline, context, total_chapters)
 
             # 质量检查
             quality_result = self.quality_check(content, characters)
@@ -190,7 +198,7 @@ class ChapterGenerator(ChapterGeneratorInterface):
                 "quality_check": quality_result,
             }
 
-        except Exception as e:
+        except (RuntimeError, ValueError) as e:
             raise RuntimeError(f"章节生成失败: {e}")
 
     def validate(self, output_data: dict) -> bool:
@@ -249,7 +257,7 @@ class ChapterGenerator(ChapterGeneratorInterface):
         user_prompt = self._build_generation_prompt(chapter_num, outline, context_summary, total_chapters)
 
         # 调用 API
-        raw_response = _call_deepseek_with_prompt(CHAPTER_GEN_PROMPT, user_prompt)
+        raw_response = call_api(CHAPTER_GEN_PROMPT, user_prompt)
 
         # 解析响应
         try:
@@ -324,7 +332,7 @@ class ChapterGenerator(ChapterGeneratorInterface):
                 if ai_check:
                     issues.extend(ai_check.get("issues", []))
                     suggestions.extend(ai_check.get("suggestions", []))
-            except Exception as e:
+            except (RuntimeError, ValueError, KeyError) as e:
                 suggestions.append(f"AI 质量检查失败: {e}")
 
         passed = len(issues) == 0
@@ -365,16 +373,17 @@ class ChapterGenerator(ChapterGeneratorInterface):
             character_info = self._format_character_info(character)
             user_prompt = CHARACTER_CHECK_PROMPT.format(
                 character_info=character_info,
-                chapter_content=content.content[:2000],  # 截断过长内容
+                chapter_content=content.content[:PROMPT_CONTENT_TRUNCATE],
             )
 
-            raw_response = _call_deepseek_with_prompt(
+            raw_response = call_api(
                 "你是一个文学编辑，请检查人物一致性。", user_prompt
             )
             result = _parse_response(raw_response)
             return result.get("consistent", True)
-        except Exception:
-            # 检查失败时，默认通过
+        except (RuntimeError, ValueError, KeyError) as e:
+            # 检查失败时，默认通过，但记录警告
+            logger.warning(f"人物一致性检查异常: {e}")
             return True
 
     def check_timeline_consistency(
@@ -403,15 +412,16 @@ class ChapterGenerator(ChapterGeneratorInterface):
             timeline_info = self._format_timeline_info(timeline)
             user_prompt = TIMELINE_CHECK_PROMPT.format(
                 timeline_info=timeline_info,
-                chapter_content=content.content[:2000],
+                chapter_content=content.content[:PROMPT_CONTENT_TRUNCATE],
             )
 
-            raw_response = _call_deepseek_with_prompt(
+            raw_response = call_api(
                 "你是一个文学编辑，请检查时间线一致性。", user_prompt
             )
             result = _parse_response(raw_response)
             return result.get("consistent", True)
-        except Exception:
+        except (RuntimeError, ValueError, KeyError) as e:
+            logger.warning(f"时间线一致性检查异常: {e}")
             return True
 
     # ── 内部辅助方法 ──────────────────────────────────────────
@@ -497,10 +507,13 @@ class ChapterGenerator(ChapterGeneratorInterface):
             return None
 
         # 计算当前章节对应的结构部分
-        # 如果 total_chapters 为 None，则使用 chapter_num 作为默认值
-        effective_total = total_chapters if total_chapters is not None else chapter_num
-        index = min(chapter_num - 1, effective_total - 1)
-        part_index = (index * num_keys) // effective_total
+        # 如果 total_chapters 为 None，则根据 chapter_num 推断（退化为线性分配）
+        if total_chapters is None:
+            # 无法确定总章节数时，按章节号对结构键数取模分配
+            part_index = (chapter_num - 1) % num_keys
+        else:
+            index = min(chapter_num - 1, total_chapters - 1)
+            part_index = (index * num_keys) // total_chapters
         part_index = min(part_index, num_keys - 1)
 
         return keys[part_index]
@@ -599,7 +612,7 @@ class ChapterGenerator(ChapterGeneratorInterface):
 标题：{content.title}
 字数：{content.word_count}
 
-{content.content[:3000]}
+{content.content[:PROMPT_CONTENT_LARGE]}
 
 ## 相关人物设定
 {char_info}
@@ -610,5 +623,5 @@ class ChapterGenerator(ChapterGeneratorInterface):
 3. 文字是否流畅
 4. 是否有逻辑漏洞"""
 
-        raw_response = _call_deepseek_with_prompt(QUALITY_CHECK_PROMPT, user_prompt)
+        raw_response = call_api(QUALITY_CHECK_PROMPT, user_prompt)
         return _parse_response(raw_response)

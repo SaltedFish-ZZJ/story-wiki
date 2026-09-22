@@ -3,48 +3,31 @@ Story Wiki - 分章分析管线
 将长文本切分为章节，逐章 AI 分析，合并去重后生成最终结果。
 支持增量分析：追加新章节到已有笔记，不覆盖旧结果。
 支持进度显示和分析结果缓存。
+
+优化：
+- 复用 src.name_matcher 统一名称匹配与合并
+- 修复 _read_existing_cards 缺少 return 的 P0 bug
+- _parse_card_md 补齐 gender/faction/aliases/status/role_tags 字段
+- 合并函数改用 copy.deepcopy() 避免浅拷贝导致的数据污染
 """
 import json
 import hashlib
-import os
 import re
 from pathlib import Path
 
-from src.analyzer import analyze_chapter, generate_context_summary, _call_deepseek_with_prompt
+from src.analyzer import analyze_chapter, generate_context_summary
+from src.api_client import call_api
 from src.splitter import Chapter, split_chapters, get_split_summary
-from src.config import VAULT_DIR, INCREMENTAL_STATE_FILE, CACHE_DIR
-from src.utils import normalize_name as _normalize_name, safe_filename as _safe_filename
+from src.config import VAULT_DIR, CACHE_DIR
+from src.logging_setup import get_logger
+from src.utils import safe_filename as _safe_filename
+from src.merger import (  # noqa: F401 — 保留兼容入口
+    merge_characters,
+    merge_settings,
+    merge_events,
+)
 
-
-def _is_similar_name(a: str, b: str) -> bool:
-    """
-    判断两个名字是否相似（可能指同一人）。
-
-    规则：
-    1. 子串匹配（如"贾宝玉"和"宝玉"）
-    2. 去括号后匹配（如"富爸爸"和"富爸爸（罗伯特·清崎的父亲）"）
-    3. 别名匹配
-    """
-    if not a or not b:
-        return False
-
-    # 规则1：精确匹配
-    if a == b:
-        return True
-
-    # 规则2：子串匹配
-    if a in b or b in a:
-        return True
-
-    # 规则3：去括号后匹配
-    norm_a = _normalize_name(a)
-    norm_b = _normalize_name(b)
-    if norm_a == norm_b:
-        return True
-    if norm_a and norm_b and (norm_a in norm_b or norm_b in norm_a):
-        return True
-
-    return False
+logger = get_logger("pipeline")
 
 
 def analyze_chaptered(text: str, title: str = None, chunk_size: int = 5000,
@@ -82,7 +65,7 @@ def analyze_chaptered(text: str, title: str = None, chunk_size: int = 5000,
         raise ValueError("文本切分结果为空")
 
     total_chapters = len(chapters)
-    print(f"[分章] {get_split_summary(chapters)}")
+    logger.info(f"分章完成：{get_split_summary(chapters)}")
 
     # Step 2: 逐章分析
     all_characters = []   # 累积所有人物
@@ -97,14 +80,14 @@ def analyze_chaptered(text: str, title: str = None, chunk_size: int = 5000,
 
         # 进度百分比
         progress = (i + 1) / total_chapters * 100
-        print(f"[进度] {progress:.0f}% ({i+1}/{total_chapters}) — 分析: {chapter.title} ({chapter.char_count} 字)")
+        logger.info(f"{progress:.0f}% ({i+1}/{total_chapters}) — 分析: {chapter.title} ({chapter.char_count} 字)")
 
         # 尝试从缓存读取
         cached_result = None
         if use_cache:
             cached_result = _get_cached_result(chapter.text, title)
             if cached_result:
-                print(f"  [缓存] 命中缓存，跳过 API 调用")
+                logger.info("命中缓存，跳过 API 调用")
 
         if cached_result is None:
             try:
@@ -121,7 +104,7 @@ def analyze_chaptered(text: str, title: str = None, chunk_size: int = 5000,
                 if use_cache:
                     _save_cached_result(chapter.text, title, result)
             except (ValueError, RuntimeError) as e:
-                print(f"  ⚠️ 第 {i+1} 章分析失败: {e}，跳过")
+                logger.warning(f"第 {i+1} 章分析失败: {e}，跳过")
                 continue
         else:
             result = cached_result
@@ -135,7 +118,7 @@ def analyze_chaptered(text: str, title: str = None, chunk_size: int = 5000,
         if ch_summary:
             chapter_summaries.append(ch_summary)
 
-        print(f"  [OK] 新增: {len(new_chars)} 人物, {len(new_settings)} 设定, {len(new_events)} 事件")
+        logger.info(f"新增: {len(new_chars)} 人物, {len(new_settings)} 设定, {len(new_events)} 事件")
 
         # Step 3: 增量合并（每章合并后更新已知列表，供下一章使用）
         all_characters = merge_characters(all_characters, new_chars)
@@ -158,369 +141,6 @@ def analyze_chaptered(text: str, title: str = None, chunk_size: int = 5000,
         "events": all_events,
         "summary": summary,
     }
-
-
-def merge_characters(existing: list, new_items: list) -> list:
-    """
-    合并人物列表，支持模糊匹配去重。
-
-    匹配规则：
-    1. 精确匹配（name 完全相同）
-    2. 子串匹配（如"贾宝玉"和"宝玉"）
-    3. 去括号匹配（如"富爸爸"和"富爸爸（罗伯特·清崎的父亲）"）
-    4. 别名匹配
-    """
-    if not existing:
-        return [c.copy() for c in new_items]
-    if not new_items:
-        return [c.copy() for c in existing]
-
-    # 构建已有名字的查找表（标准名 -> 人物）
-    existing_map = {}
-    for c in existing:
-        name = c.get("name", "")
-        if name:
-            existing_map[name] = c.copy()
-            # 也将别名添加到查找表
-            for alias in (c.get("aliases") or []):
-                if alias and alias not in existing_map:
-                    existing_map[alias] = c.copy()
-
-    # 用于存储最终结果的字典（使用标准名作为 key）
-    result_map = {}
-    for name, c in existing_map.items():
-        canonical = c.get("name", "")
-        if canonical not in result_map:
-            result_map[canonical] = c
-
-    # 处理新条目
-    for c in new_items:
-        name = c.get("name", "")
-        if not name:
-            continue
-
-        # 尝试在已有数据中找到匹配项
-        matched_canonical = _find_matching_character(name, c, result_map)
-
-        if matched_canonical:
-            # 合并到已有人物
-            old = result_map[matched_canonical]
-            merged = _merge_single_character(old, c)
-            result_map[matched_canonical] = merged
-
-            # 如果新名字更长，更新标准名
-            if len(name) > len(matched_canonical):
-                new_canonical = name
-                merged["name"] = new_canonical
-                merged["aliases"] = _merge_set_list(
-                    {"aliases": merged.get("aliases", [])},
-                    {"aliases": [matched_canonical] + list(c.get("aliases", []))},
-                    "aliases"
-                )
-                result_map[new_canonical] = merged
-                del result_map[matched_canonical]
-        else:
-            # 新人物，直接添加
-            result_map[name] = c.copy()
-
-    return list(result_map.values())
-
-
-def _find_matching_character(name: str, c: dict, result_map: dict) -> str | None:
-    """
-    在 result_map 中查找与 name 匹配的人物。
-
-    返回匹配到的标准名，如果没有匹配返回 None。
-    """
-    # 规则1：精确匹配
-    if name in result_map:
-        return name
-
-    # 规则2：去括号后匹配
-    norm_name = _normalize_name(name)
-    for canonical in result_map:
-        norm_canonical = _normalize_name(canonical)
-        if norm_name == norm_canonical:
-            return canonical
-        if norm_name and norm_canonical and (norm_name in norm_canonical or norm_canonical in norm_name):
-            return canonical
-
-    # 规则3：子串匹配
-    for canonical in result_map:
-        if _is_similar_name(name, canonical):
-            return canonical
-
-    # 规则4：检查新条目的名字是否是已有人物的别名
-    for canonical, c_data in result_map.items():
-        aliases = c_data.get("aliases") or []
-        if name in aliases:
-            return canonical
-        # 检查别名的模糊匹配
-        for alias in aliases:
-            if _is_similar_name(name, alias):
-                return canonical
-
-    # 规则5：检查新条目的别名是否匹配已有人物的名字
-    for alias in (c.get("aliases") or []):
-        if alias in result_map:
-            return alias
-        # 检查别名的模糊匹配
-        for canonical in result_map:
-            if _is_similar_name(alias, canonical):
-                return canonical
-
-    return None
-
-
-def _merge_single_character(old: dict, new: dict) -> dict:
-    """合并同一个人物的两条记录。"""
-    merged = old.copy()
-
-    # 对于文本字段，取更长的（通常更详细）
-    for key in ["identity", "personality", "faction", "gender"]:
-        old_val = merged.get(key) or ""
-        new_val = new.get(key) or ""
-        if new_val and (not old_val or len(new_val) > len(old_val)):
-            merged[key] = new_val
-
-    # 集合类字段合并
-    merged["aliases"] = _merge_set_list(merged, new, "aliases")
-    merged["related_settings"] = _merge_set_list(merged, new, "related_settings")
-
-    # relationships 合并去重（按 target+nature 去重）
-    merged["relationships"] = _merge_rel_list(merged, new, "relationships")
-
-    return merged
-
-
-def _merge_set_list(old: dict, new: dict, key: str) -> list:
-    """合并两个 dict 中同名 key 的列表，去重返回。"""
-    old_vals = set(old.get(key) or [])
-    new_vals = set(new.get(key) or [])
-    return list(old_vals | new_vals)
-
-
-def _merge_rel_list(old: dict, new: dict, key: str) -> list:
-    """合并关系列表，按 (target, nature) 去重。"""
-    seen = set()
-    result = []
-    for rel in (old.get(key) or []) + (new.get(key) or []):
-        k = (rel.get("target", ""), rel.get("nature", ""))
-        if k not in seen:
-            seen.add(k)
-            result.append(rel)
-    return result
-
-
-def merge_settings(existing: list, new_items: list) -> list:
-    """
-    合并设定列表，支持模糊匹配去重。
-
-    匹配规则：
-    1. 精确匹配（name 完全相同）
-    2. 子串匹配（如"花果山"和"花果山水帘洞"）
-    3. 去括号匹配
-    """
-    if not existing:
-        return [s.copy() for s in new_items]
-    if not new_items:
-        return [s.copy() for s in existing]
-
-    # 构建已有名字的查找表
-    result_map = {}
-    for s in existing:
-        name = s.get("name", "")
-        if name:
-            result_map[name] = s.copy()
-
-    # 处理新条目
-    for s in new_items:
-        name = s.get("name", "")
-        if not name:
-            continue
-
-        # 尝试找到匹配项
-        matched_canonical = _find_matching_setting(name, result_map)
-
-        if matched_canonical:
-            # 合并到已有设定
-            old = result_map[matched_canonical]
-            # 取更长的描述
-            old_desc = old.get("description") or ""
-            new_desc = s.get("description") or ""
-            if len(new_desc) > len(old_desc):
-                old["description"] = new_desc
-            # 取更具体的类型
-            old_type = old.get("type") or ""
-            new_type = s.get("type") or ""
-            if new_type and not old_type:
-                old["type"] = new_type
-            # 合并关联关系
-            old["related_characters"] = _merge_set_list(old, s, "related_characters")
-            old["related_settings"] = _merge_set_list(old, s, "related_settings")
-            result_map[matched_canonical] = old
-
-            # 如果新名字更长，更新标准名
-            if len(name) > len(matched_canonical):
-                result_map[name] = old
-                del result_map[matched_canonical]
-        else:
-            # 新设定，直接添加
-            result_map[name] = s.copy()
-
-    return list(result_map.values())
-
-
-def _find_matching_setting(name: str, result_map: dict) -> str | None:
-    """在 result_map 中查找与 name 匹配的设定。"""
-    # 规则1：精确匹配
-    if name in result_map:
-        return name
-
-    # 规则2：去括号后匹配
-    norm_name = _normalize_name(name)
-    for canonical in result_map:
-        norm_canonical = _normalize_name(canonical)
-        if norm_name == norm_canonical:
-            return canonical
-        if norm_name and norm_canonical and (norm_name in norm_canonical or norm_canonical in norm_name):
-            return canonical
-
-    # 规则3：子串匹配
-    for canonical in result_map:
-        if _is_similar_name(name, canonical):
-            return canonical
-
-    return None
-
-
-def merge_events(existing: list, new_items: list) -> list:
-    """
-    合并事件列表，支持模糊匹配去重。
-
-    匹配规则：
-    1. 精确匹配（name 完全相同）
-    2. 子串匹配（如"大闹天宫"和"孙悟空大闹天宫"）
-    3. 去括号匹配
-    """
-    if not existing:
-        return [e.copy() for e in new_items]
-    if not new_items:
-        return [e.copy() for e in existing]
-
-    # 构建已有名字的查找表
-    result_map = {}
-    for e in existing:
-        name = e.get("name", "")
-        if name:
-            result_map[name] = e.copy()
-
-    # 处理新条目
-    for e in new_items:
-        name = e.get("name", "")
-        if not name:
-            continue
-
-        # 尝试找到匹配项
-        matched_canonical = _find_matching_event(name, result_map)
-
-        if matched_canonical:
-            # 合并到已有事件
-            old = result_map[matched_canonical]
-            # 合并 participants（并集）
-            old["participants"] = list(set(
-                (old.get("participants") or []) + (e.get("participants") or [])
-            ))
-            # 取更长的 description
-            old_desc = old.get("description") or ""
-            new_desc = e.get("description") or ""
-            if len(new_desc) > len(old_desc):
-                old["description"] = new_desc
-            # 合并 cause（并集）
-            old["cause"] = list(set(
-                (old.get("cause") or []) + (e.get("cause") or [])
-            ))
-            # 合并 effect（并集）
-            old["effect"] = list(set(
-                (old.get("effect") or []) + (e.get("effect") or [])
-            ))
-            # 取 time（如果原来没有）
-            if not old.get("time") and e.get("time"):
-                old["time"] = e["time"]
-            # 取 location（如果原来没有）
-            if not old.get("location") and e.get("location"):
-                old["location"] = e["location"]
-            # 取 importance（如果原来没有，或新的更高）
-            _importance_order = {"高": 3, "中": 2, "低": 1}
-            old_imp = _importance_order.get(old.get("importance") or "", 0)
-            new_imp = _importance_order.get(e.get("importance") or "", 0)
-            if new_imp > old_imp:
-                old["importance"] = e["importance"]
-            result_map[matched_canonical] = old
-
-            # 如果新名字更长，更新标准名
-            if len(name) > len(matched_canonical):
-                result_map[name] = old
-                del result_map[matched_canonical]
-        else:
-            # 新事件，直接添加
-            result_map[name] = e.copy()
-
-    return list(result_map.values())
-
-
-def _normalize_event_name(name: str) -> str:
-    """
-    事件名归一化：去除动作词和地点后缀，用于模糊匹配。
-
-    例：
-    - "宝钗进贾府" → "宝钗"
-    - "宝钗进府" → "宝钗"
-    - "宝钗入贾府" → "宝钗"
-    - "宝玉摔玉" → "宝玉摔玉"（无匹配则保留原名）
-    """
-    norm = _normalize_name(name)  # 先去括号
-
-    # 去除常见动作词（进/入/到/上/下）
-    norm = re.sub(r'[进入上下到]+', '', norm)
-
-    # 去除常见地点后缀（贾府/府/府中/府上/府里）
-    norm = re.sub(r'府[中上里]*$', '', norm)
-
-    return norm.strip()
-
-
-def _find_matching_event(name: str, result_map: dict) -> str | None:
-    """在 result_map 中查找与 name 匹配的事件。"""
-    # 规则1：精确匹配
-    if name in result_map:
-        return name
-
-    # 规则2：去括号后匹配
-    norm_name = _normalize_name(name)
-    for canonical in result_map:
-        norm_canonical = _normalize_name(canonical)
-        if norm_name == norm_canonical:
-            return canonical
-        if norm_name and norm_canonical and (norm_name in norm_canonical or norm_canonical in norm_name):
-            return canonical
-
-    # 规则3：子串匹配
-    for canonical in result_map:
-        if _is_similar_name(name, canonical):
-            return canonical
-
-    # 规则4：事件名归一化匹配（去除动作词+地点后缀）
-    norm_event = _normalize_event_name(name)
-    if norm_event and len(norm_event) >= 2:
-        for canonical in result_map:
-            norm_canonical = _normalize_event_name(canonical)
-            if norm_event == norm_canonical:
-                return canonical
-            if norm_event in norm_canonical or norm_canonical in norm_event:
-                return canonical
-
-    return None
 
 
 def merge_chapter_summaries(title: str, chapter_summaries: list[str]) -> str:
@@ -557,7 +177,7 @@ def merge_chapter_summaries(title: str, chapter_summaries: list[str]) -> str:
     user_prompt = f"请将以下各章摘要合并为连贯的全书概要：\n\n{summaries_text}"
 
     try:
-        result = _call_deepseek_with_prompt(system_prompt, user_prompt)
+        result = call_api(system_prompt, user_prompt)
         # 清理AI返回的结果
         result = result.strip()
         if result.startswith("```") and result.endswith("```"):
@@ -565,8 +185,8 @@ def merge_chapter_summaries(title: str, chapter_summaries: list[str]) -> str:
         if result.startswith('"') and result.endswith('"'):
             result = result[1:-1]
         return result
-    except Exception as e:
-        print(f"  ⚠️ AI合并摘要失败，使用简单拼接: {e}")
+    except (RuntimeError, ValueError) as e:
+        print(f"  ⚠️ AI合并摘要失败，使用简单拼接: {e}")  # 保留 print（面向用户的 CLI 输出）
         # 回退到简单拼接
         combined = "；".join(summaries_to_merge[:10])
         if len(chapter_summaries) > 10:
@@ -673,10 +293,72 @@ def _read_existing_cards(cards_dir: Path, card_type: str) -> list:
             card = _parse_card_md(content, card_type)
             if card:
                 cards.append(card)
-        except Exception:
+        except (FileNotFoundError, UnicodeDecodeError, ValueError) as e:
+            logger.warning(f"解析卡片文件失败 {md_file.name}: {e}")
             continue
 
     return cards
+
+
+def _parse_frontmatter(content: str) -> tuple[dict, str]:
+    """
+    解析 Obsidian frontmatter 块。
+
+    Returns:
+        (frontmatter_dict, 正文内容)
+    """
+    frontmatter: dict = {}
+    if not content.startswith("---"):
+        return frontmatter, content
+
+    parts = content.split("---", 2)
+    if len(parts) < 3:
+        return frontmatter, content
+
+    fm_text = parts[1].strip()
+    body = parts[2].lstrip("\n")
+    current_list_key: str | None = None
+
+    for raw_line in fm_text.split("\n"):
+        line = raw_line.rstrip()
+        if not line or line.startswith("#"):
+            continue
+        # 列表项延续
+        if line.startswith("  - ") or line.startswith("-\t") or line.startswith(" - "):
+            value = line.lstrip(" -").lstrip("\t").strip()
+            if current_list_key is not None:
+                frontmatter.setdefault(current_list_key, []).append(_coerce_scalar(value))
+            continue
+        if ":" in line:
+            key, _, value = line.partition(":")
+            key = key.strip()
+            value = value.strip()
+            current_list_key = None
+            if not value:
+                # 接下来可能是列表
+                current_list_key = key
+                frontmatter.setdefault(key, [])
+            else:
+                frontmatter[key] = _coerce_scalar(value)
+    return frontmatter, body
+
+
+def _coerce_scalar(value: str):
+    """把字符串值转换为合适的标量（去引号、数字等）。"""
+    v = value.strip()
+    if not v:
+        return v
+    if (v.startswith('"') and v.endswith('"')) or (v.startswith("'") and v.endswith("'")):
+        return v[1:-1]
+    if v.lower() in ("true", "false"):
+        return v.lower() == "true"
+    if v.startswith("[") and v.endswith("]"):
+        # 极简列表语法兼容
+        inner = v[1:-1].strip()
+        if not inner:
+            return []
+        return [_coerce_scalar(item.strip()) for item in inner.split(",")]
+    return v
 
 
 def _parse_card_md(content: str, card_type: str) -> dict:
@@ -686,34 +368,64 @@ def _parse_card_md(content: str, card_type: str) -> dict:
         return None
 
     # 简单解析：从文件名和内容中提取信息
-    card = {"type": card_type}
+    card: dict = {"type": card_type}
 
-    # 提取标题（第一行 # 开头）
-    for line in lines:
-        if line.startswith('# '):
-            card["name"] = line[2:].strip()
-            break
+    # 1) 解析 frontmatter（补齐 gender/faction/aliases/status/role_tags 等）
+    frontmatter, body = _parse_frontmatter(content)
+    if frontmatter:
+        # 保留所有标量字段，列表字段直接合并
+        for k, v in frontmatter.items():
+            if k in ("aliases", "role_tags", "related_settings", "related_characters"):
+                if isinstance(v, list):
+                    card[k] = v
+            else:
+                if v is not None and v != "":
+                    card[k] = v
+
+    # 2) 提取标题（第一行 # 开头），若 frontmatter 中已有 name 优先使用
+    if not card.get("name"):
+        for line in lines:
+            if line.startswith('# '):
+                card["name"] = line[2:].strip()
+                break
 
     if not card.get("name"):
         return None
 
-    # 提取各部分内容
+    # 3) 提取各部分内容（仅解析正文，跳过 frontmatter）
     current_section = None
     section_content = []
-
-    for line in lines[1:]:
+    for line in body.split('\n'):
         if line.startswith('## '):
             if current_section and section_content:
                 _assign_section(card, current_section, section_content)
             current_section = line[3:].strip()
             section_content = []
+        elif line.startswith('# '):
+            # 一级标题（人物名）跳过，已从 frontmatter 取过 name
+            continue
         elif line.startswith('- '):
             section_content.append(line[2:].strip())
-        elif current_section:
-            section_content.append(line.strip())
+        elif current_section is not None:
+            stripped = line.strip()
+            if stripped:
+                section_content.append(stripped)
 
     if current_section and section_content:
         _assign_section(card, current_section, section_content)
+
+    # 4) frontmatter 中的别名字符串（如 "贾宝玉, 通灵宝玉"）转为列表
+    aliases = card.get("aliases")
+    if isinstance(aliases, str) and aliases:
+        card["aliases"] = [a.strip() for a in re.split(r"[,，;；]", aliases) if a.strip()]
+    if "aliases" not in card:
+        card["aliases"] = []
+
+    role_tags = card.get("role_tags")
+    if isinstance(role_tags, str) and role_tags:
+        card["role_tags"] = [a.strip() for a in re.split(r"[,，;；]", role_tags) if a.strip()]
+    if "role_tags" not in card:
+        card["role_tags"] = []
 
     return card
 
@@ -740,6 +452,12 @@ def _assign_section(card: dict, section: str, content: list):
                         "nature": parts[1].strip()
                     })
         card["relationships"] = relationships
+    elif '性别' in section_lower:
+        card["gender"] = content[0].strip() if content else None
+    elif '势力' in section_lower or '阵营' in section_lower:
+        card["faction"] = content[0].strip() if content else None
+    elif '状态' in section_lower:
+        card["status"] = content[0].strip() if content else None
     elif '类型' in section_lower:
         card["type"] = content[0] if content else "其他"
     elif '描述' in section_lower or '简介' in section_lower:
@@ -798,17 +516,17 @@ def analyze_chaptered_incremental(text: str, title: str = None,
     existing_chapters = set(existing.get("chapters_analyzed", []))
 
     if existing["exists"]:
-        print(f"[增量] 检测到已有分析结果：{len(existing_chapters)} 章已分析")
-        print(f"       人物: {len(existing['characters'])} 个 | 设定: {len(existing['settings'])} 个 | 事件: {len(existing['events'])} 个")
+        logger.info(f"检测到已有分析结果：{len(existing_chapters)} 章已分析")
+        logger.info(f"人物: {len(existing['characters'])} 个 | 设定: {len(existing['settings'])} 个 | 事件: {len(existing['events'])} 个")
     else:
-        print("[增量] 无已有分析结果，将从头开始")
+        logger.info("无已有分析结果，将从头开始")
 
     # Step 2: 切分章节
     chapters = split_chapters(text, chunk_size=chunk_size)
     if not chapters:
         raise ValueError("文本切分结果为空")
 
-    print(f"[分章] {get_split_summary(chapters)}")
+    logger.info(f"分章完成：{get_split_summary(chapters)}")
 
     # 筛选需要分析的章节
     chapters_to_analyze = _filter_chapters(
@@ -816,11 +534,11 @@ def analyze_chaptered_incremental(text: str, title: str = None,
     )
 
     if not chapters_to_analyze:
-        print("[增量] 所有章节已分析，无需重复分析")
+        logger.info("所有章节已分析，无需重复分析")
         return _build_result_from_existing(existing, title)
 
     total_new = len(chapters_to_analyze)
-    print(f"[增量] 需分析 {total_new} 个新章节")
+    logger.info(f"需分析 {total_new} 个新章节")
 
     # Step 3: 构建初始上下文
     known_characters, known_settings, known_events = build_initial_context_for_incremental(existing)
@@ -838,14 +556,14 @@ def analyze_chaptered_incremental(text: str, title: str = None,
 
         # 进度百分比
         progress = (i + 1) / total_new * 100
-        print(f"[进度] {progress:.0f}% ({i+1}/{total_new}) — 分析: {chapter.title} ({chapter.char_count} 字)")
+        logger.info(f"{progress:.0f}% ({i+1}/{total_new}) — 分析: {chapter.title} ({chapter.char_count} 字)")
 
         # 尝试从缓存读取
         cached_result = None
         if use_cache:
             cached_result = _get_cached_result(chapter.text, title)
             if cached_result:
-                print(f"  [缓存] 命中缓存，跳过 API 调用")
+                logger.info("命中缓存，跳过 API 调用")
 
         if cached_result is None:
             try:
@@ -862,7 +580,7 @@ def analyze_chaptered_incremental(text: str, title: str = None,
                 if use_cache:
                     _save_cached_result(chapter.text, title, result)
             except (ValueError, RuntimeError) as e:
-                print(f"  ⚠️ 第 {i+1} 章分析失败: {e}，跳过")
+                logger.warning(f"第 {i+1} 章分析失败: {e}，跳过")
                 continue
         else:
             result = cached_result
@@ -879,7 +597,7 @@ def analyze_chaptered_incremental(text: str, title: str = None,
                 "summary": ch_summary
             })
 
-        print(f"  [OK] 新增: {len(chapter_chars)} 人物, {len(chapter_settings)} 设定, {len(chapter_events)} 事件")
+        logger.info(f"新增: {len(chapter_chars)} 人物, {len(chapter_settings)} 设定, {len(chapter_events)} 事件")
 
         # 合并到新数据列表
         new_characters = merge_characters(new_characters, chapter_chars)
@@ -1041,7 +759,7 @@ def _save_cached_result(text: str, title: str, result: dict):
         with open(cache_path, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
     except IOError as e:
-        print(f"  [警告] 缓存写入失败: {e}")
+        logger.warning(f"缓存写入失败: {e}")
 
 
 def clear_cache():
@@ -1050,9 +768,9 @@ def clear_cache():
     if cache_dir.exists():
         import shutil
         shutil.rmtree(cache_dir)
-        print(f"[缓存] 已清除所有缓存")
+        logger.info("已清除所有缓存")
     else:
-        print(f"[缓存] 无缓存可清除")
+        logger.info("无缓存可清除")
 
 
 

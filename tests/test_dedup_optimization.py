@@ -9,12 +9,14 @@ from src.pipeline import (
     merge_settings,
     merge_events,
     merge_chapter_summaries,
-    _normalize_name,
-    _is_similar_name,
+)
+from src.merger import (
     _find_matching_character,
     _find_matching_setting,
     _find_matching_event,
 )
+from src.utils import normalize_name as _normalize_name
+from src.name_matcher import is_similar_name as _is_similar_name
 
 
 class TestNormalizeName:
@@ -189,7 +191,7 @@ class TestMergeChapterSummaries:
         result = merge_chapter_summaries("测试作品", ["第一章摘要"])
         assert result == "第一章摘要"
 
-    @patch("src.pipeline._call_deepseek_with_prompt")
+    @patch("src.pipeline.call_api")
     def test_merge_multiple_summaries(self, mock_api):
         """多章摘要调用AI合并。"""
         mock_api.return_value = "这是合并后的全书概要。"
@@ -198,7 +200,7 @@ class TestMergeChapterSummaries:
         assert result == "这是合并后的全书概要。"
         assert mock_api.called
 
-    @patch("src.pipeline._call_deepseek_with_prompt")
+    @patch("src.pipeline.call_api")
     def test_merge_with_markdown_code_block(self, mock_api):
         """AI返回带代码块标记时自动清理。"""
         mock_api.return_value = '```\n这是合并后的全书概要。\n```'
@@ -206,7 +208,7 @@ class TestMergeChapterSummaries:
         result = merge_chapter_summaries("测试作品", summaries)
         assert result == "这是合并后的全书概要。"
 
-    @patch("src.pipeline._call_deepseek_with_prompt")
+    @patch("src.pipeline.call_api")
     def test_merge_with_quotes(self, mock_api):
         """AI返回带引号时自动清理。"""
         mock_api.return_value = '"这是合并后的全书概要。"'
@@ -214,10 +216,10 @@ class TestMergeChapterSummaries:
         result = merge_chapter_summaries("测试作品", summaries)
         assert result == "这是合并后的全书概要。"
 
-    @patch("src.pipeline._call_deepseek_with_prompt")
+    @patch("src.pipeline.call_api")
     def test_merge_fallback_on_error(self, mock_api):
         """AI调用失败时回退到简单拼接。"""
-        mock_api.side_effect = Exception("API Error")
+        mock_api.side_effect = RuntimeError("API Error")
         summaries = ["第1章摘要", "第2章摘要"]
         result = merge_chapter_summaries("测试作品", summaries)
         # 回退到简单拼接
@@ -225,7 +227,7 @@ class TestMergeChapterSummaries:
         assert "第2章摘要" in result
         assert "；" in result
 
-    @patch("src.pipeline._call_deepseek_with_prompt")
+    @patch("src.pipeline.call_api")
     def test_merge_limits_summaries(self, mock_api):
         """超过30章时只处理前30章。"""
         mock_api.return_value = "合并概要"

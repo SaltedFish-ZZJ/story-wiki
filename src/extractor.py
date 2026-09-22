@@ -8,6 +8,9 @@ Story Wiki - 文本提取模块
 import os
 from pathlib import Path
 from src.config import LARGE_FILE_THRESHOLD, CHUNK_READ_SIZE as CHUNK_SIZE
+from src.logging_setup import get_logger
+
+logger = get_logger("extractor")
 
 
 def extract_text(file_path: str, use_streaming: bool = None) -> str:
@@ -47,7 +50,7 @@ def extract_text(file_path: str, use_streaming: bool = None) -> str:
         file_size = path.stat().st_size
         use_streaming = file_size > LARGE_FILE_THRESHOLD
         if use_streaming:
-            print(f"[优化] 检测到大文件 ({file_size / 1024 / 1024:.1f}MB)，启用流式读取")
+            logger.info(f"检测到大文件 ({file_size / 1024 / 1024:.1f}MB)，启用流式读取")
 
     return reader(path, use_streaming=use_streaming)
 
@@ -99,7 +102,7 @@ def _read_txt_streaming(path: Path, encoding: str) -> str:
     2. 边读取边清理，避免同时保存原始文本和清理后文本
     3. 使用生成器逐块处理
     """
-    print(f"[优化] 使用流式读取，分块大小: {CHUNK_SIZE // 1024}KB")
+    logger.info(f"使用流式读取，分块大小: {CHUNK_SIZE // 1024}KB")
 
     # 使用 io 模块进行流式读取
     import io
@@ -121,7 +124,7 @@ def _read_txt_streaming(path: Path, encoding: str) -> str:
                 total_chars += len(stripped)
 
     # 定期打印进度
-    print(f"[优化] 流式读取完成，共 {total_chars} 字")
+    logger.info(f"流式读取完成，共 {total_chars} 字")
 
     return "\n".join(cleaned_lines).strip()
 
@@ -180,12 +183,12 @@ def _read_epub(path: Path, use_streaming: bool = False) -> str:
 
         # 大文件进度提示
         if use_streaming and (i + 1) % 10 == 0:
-            print(f"[优化] 已处理 {i + 1} 个章节，共 {total_chars} 字")
+            logger.info(f"已处理 {i + 1} 个章节，共 {total_chars} 字")
 
     if not parts:
         raise ValueError("epub 文件中未提取到文本内容")
 
-    print(f"[优化] epub 读取完成，共 {len(parts)} 个章节，{total_chars} 字")
+    logger.info(f"epub 读取完成，共 {len(parts)} 个章节，{total_chars} 字")
     return _clean_text("\n\n".join(parts))
 
 
@@ -200,7 +203,10 @@ def _read_pdf(path: Path, use_streaming: bool = False) -> str:
             "pdf 支持需要 pymupdf 库，请安装: pip install pymupdf"
         )
 
-    doc = fitz.open(str(path))
+    try:
+        doc = fitz.open(str(path))
+    except (RuntimeError, ValueError) as exc:
+        raise ValueError(f"无法读取 pdf 文件，文件可能已损坏或格式不受支持: {path}") from exc
     parts = []
     total_chars = 0
     total_pages = len(doc)
@@ -214,14 +220,14 @@ def _read_pdf(path: Path, use_streaming: bool = False) -> str:
 
         # 大文件进度提示
         if use_streaming and (page_num + 1) % 50 == 0:
-            print(f"[优化] 已处理 {page_num + 1}/{total_pages} 页，共 {total_chars} 字")
+            logger.info(f"已处理 {page_num + 1}/{total_pages} 页，共 {total_chars} 字")
 
     doc.close()
 
     if not parts:
         raise ValueError("pdf 文件中未提取到文本内容")
 
-    print(f"[优化] pdf 读取完成，共 {total_pages} 页，{total_chars} 字")
+    logger.info(f"pdf 读取完成，共 {total_pages} 页，{total_chars} 字")
     return _clean_text("\n\n".join(parts))
 
 
@@ -337,7 +343,7 @@ def _remove_non_content(text: str) -> str:
             break
 
     if content_start > 0 or content_end < len(text):
-        print(f"[优化] 移除非正文内容：前 {content_start} 字，后 {len(text) - content_end} 字")
+        logger.info(f"移除非正文内容：前 {content_start} 字，后 {len(text) - content_end} 字")
         text = text[content_start:content_end].strip()
 
     return text

@@ -8,6 +8,7 @@ Story Wiki - 文本提取模块测试
 - 编码检测、错误处理
 """
 import os
+import sys
 import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock
@@ -204,8 +205,18 @@ class TestExtractTextEpub:
 class TestExtractTextPdf:
     """测试 extract_text 对 pdf 文件的处理。"""
 
-    def test_pdf_without_pymupdf_raises(self, tmp_path):
+    def test_pdf_without_pymupdf_raises(self, tmp_path, monkeypatch):
         file = tmp_path / "test.pdf"
         file.write_bytes(b"fake pdf")
+
+        monkeypatch.setitem(sys.modules, "fitz", None)
         with pytest.raises(ValueError, match="pymupdf"):
+            extract_text(str(file))
+
+    def test_invalid_pdf_raises_clear_error(self, tmp_path):
+        pytest.importorskip("fitz")
+        file = tmp_path / "broken.pdf"
+        file.write_bytes(b"fake pdf")
+
+        with pytest.raises(ValueError, match="文件可能已损坏或格式不受支持"):
             extract_text(str(file))

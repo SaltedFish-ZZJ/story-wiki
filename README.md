@@ -15,11 +15,11 @@ AI 驱动的故事知识库系统。
 ## 快速开始
 
 ```bash
-# 1. 安装依赖
-pip install requests psutil
+# 1. 安装项目与常用格式支持
+python -m pip install -e ".[formats]"
 
 # 2. 配置 API（复制 .env.example 为 .env 并填入配置）
-cp .env.example .env
+Copy-Item .env.example .env
 
 # 3. 查看内存状态
 python src/main.py --memory-status
@@ -32,6 +32,18 @@ python src/agent.py
 
 # 6. 用 Obsidian 打开 vault 目录，查看 Graph View
 ```
+
+### 可选安装
+
+```bash
+# Web UI
+python -m pip install -e ".[web]"
+
+# 开发与测试（包含全部可选能力）
+python -m pip install -e ".[formats,web,test]"
+```
+
+安装完成后可用 `story-wiki --help` 或 `python src/main.py --help` 检查 CLI。
 
 ## 高级功能
 

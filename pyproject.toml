@@ -1,8 +1,39 @@
 [project]
 name = "story-wiki"
-version = "0.8.0"
+version = "0.12.1"
 description = "AI 驱动的故事知识库系统"
 requires-python = ">=3.13"
+dependencies = [
+    "psutil>=6.0",
+    "requests>=2.32",
+]
+
+[project.optional-dependencies]
+formats = [
+    "ebooklib>=0.19",
+    "pymupdf>=1.25",
+]
+web = [
+    "fastapi>=0.115",
+    "pyyaml>=6.0",
+    "uvicorn>=0.34",
+]
+test = [
+    "httpx>=0.28",
+    "pytest>=8.0",
+    "pytest-cov>=6.0",
+    "pytest-mock>=3.14",
+]
+
+[project.scripts]
+story-wiki = "src.main:main"
+
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["src*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

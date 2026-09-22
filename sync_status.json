@@ -1,6 +1,6 @@
 {
   "project": "Story Wiki",
-  "version": "v0.7.0",
+  "version": "v0.12.1",
   "last_sync": "2026-06-22T11:30:00",
   "sync_interval_minutes": 30,
   "modules": {
