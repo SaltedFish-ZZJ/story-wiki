@@ -37,7 +37,7 @@ DEEPSEEK_BASE_URL = os.environ.get("STORY_WIKI_BASE_URL", "https://api.deepseek.
 DEEPSEEK_MODEL = os.environ.get("STORY_WIKI_MODEL", "deepseek-chat")
 
 # ── 路径配置 ──
-VAULT_DIR = Path(os.environ.get("STORY_WIKI_VAULT", r"D:\Obsidian_Work\story_wiki"))
+VAULT_DIR = Path(os.environ.get("STORY_WIKI_VAULT", str(PROJECT_ROOT / "vault")))
 DATA_DIR = PROJECT_ROOT / "data"
 INPUT_DIR = DATA_DIR / "input"
 STATE_DIR = DATA_DIR / "state"
