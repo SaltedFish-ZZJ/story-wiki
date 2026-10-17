@@ -205,9 +205,11 @@ def search_entities(conn: sqlite3.Connection, query: str, kind: str | None = Non
     """
     FTS5 全文检索实体。
 
-    - query 用双引号包裹为短语查询：中文按字序列匹配，避免拆字误召回
+    - query 用双引号包裹为短语查询，先走 bm25 相关度排序
     - kind 可选 'character' / 'event' / 'setting' 过滤
-    - 返回字段带 md_path 与所属书名，按 bm25 相关度排序
+    - unicode61 分词器不会按字切分中文（「孙少安」是单个 token），
+      短关键词如「少安」匹配不到长 token —— FTS 零命中时回退 name LIKE 子串扫描保证召回
+    - 返回字段带 md_path 与所属书名
     """
     if not query or not query.strip():
         return []
@@ -234,8 +236,26 @@ def search_entities(conn: sqlite3.Connection, query: str, kind: str | None = Non
         rows = conn.execute(sql, params).fetchall()
     except sqlite3.OperationalError:
         # 查询语法异常（如纯标点）时安全降级为空结果
-        return []
-    return [dict(r) for r in rows]
+        rows = []
+    if rows:
+        return [dict(r) for r in rows]
+
+    # LIKE 兜底：仅扫 name，避免 summary 子串误召回（与 kind 过滤语义一致）
+    like = f"%{query.strip()}%"
+    fallback_sql = """
+        SELECT e.id, e.kind, e.name, e.category, e.summary, e.md_path,
+               d.title AS book, 0 AS rank
+        FROM entity e
+        JOIN document d ON d.id = e.doc_id
+        WHERE e.name LIKE ?
+    """
+    fallback_params: list = [like]
+    if kind:
+        fallback_sql += " AND e.kind = ?"
+        fallback_params.append(kind)
+    fallback_sql += " ORDER BY LENGTH(e.name) LIMIT ?"
+    fallback_params.append(max(1, min(int(limit), 100)))
+    return [dict(r) for r in conn.execute(fallback_sql, fallback_params).fetchall()]
 
 
 def document_stats(conn: sqlite3.Connection) -> list[dict]:

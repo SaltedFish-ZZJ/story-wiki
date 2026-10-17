@@ -193,13 +193,12 @@ def _load_book(title: str) -> dict:
             })
 
         elif category == "settings" and fm.get("type") == "setting":
-            name_line = text.split("\n")[0].lstrip("# ").strip()
-            name = name_line if name_line else md_file.stem
+            name = _extract_name(text, md_file.stem)
             settings.append({
                 "name": name,
                 "setting_type": fm.get("setting_type", "概念"),
-                "description": _extract_section(text, "描述")[:200],
-                "characters": _parse_section_links(text, "出现人物"),
+                "description": (_extract_section(text, "描述") or _body_summary(text))[:200],
+                "characters": _parse_section_links(text, "关联人物"),
                 "events": _parse_section_links(text, "关联事件"),
                 "subfolder": md_file.parent.name,
             })
@@ -431,6 +430,13 @@ async def api_timeline(title: str, importance: str = "", character: str = ""):
     return {"events": events, "total": len(events)}
 
 
+@app.get("/api/books/{title}/settings")
+async def api_settings_list(title: str):
+    """设定与地点列表（04 设定章节用）。"""
+    data = _load_book(title)
+    return {"settings": data["settings"], "total": len(data["settings"])}
+
+
 # ── 全局全文检索（SQLite + FTS5） ─────────────────────────────
 
 
@@ -528,7 +534,109 @@ async def api_task_status(task_id: str):
     return task
 
 
-# ── 登录 / 登出（P2 最小鉴权） ────────────────────────────────
+# ── LLM 设置页接口（受鉴权保护）──────────────────────────────
+
+
+def _settings_payload() -> dict:
+    from src import config as app_config
+
+    cfg = app_config.get_llm_config()
+    return {
+        "api_key_masked": app_config.mask_key(cfg["api_key"]),
+        "has_api_key": bool(cfg["api_key"]),
+        "base_url": cfg["base_url"],
+        "model": cfg["model"],
+        "auth_enabled": auth_enabled(),
+    }
+
+
+@app.get("/api/settings", dependencies=[Depends(require_auth)])
+async def api_get_settings():
+    """读取当前 LLM 连接配置（Key 打码返回）。"""
+    return _settings_payload()
+
+
+@app.post("/api/settings", dependencies=[Depends(require_auth)])
+async def api_save_settings(payload: dict):
+    """保存 LLM 连接配置并写回 .env。api_key 留空表示沿用原值。"""
+    from src import config as app_config
+
+    payload = payload or {}
+    base_url = (payload.get("base_url") or "").strip()
+    if base_url and not base_url.startswith(("http://", "https://")):
+        raise HTTPException(400, "BASE_URL 必须以 http:// 或 https:// 开头")
+
+    cfg = app_config.set_llm_config(
+        api_key=(payload.get("api_key") or "").strip() or None,
+        base_url=base_url or None,
+        model=(payload.get("model") or "").strip() or None,
+        env_path=BASE_DIR / ".env",  # 仅此处显式持久化
+    )
+    return {
+        "saved": True,
+        "api_key_masked": app_config.mask_key(cfg["api_key"]),
+        "has_api_key": bool(cfg["api_key"]),
+        "base_url": cfg["base_url"],
+        "model": cfg["model"],
+    }
+
+
+@app.post("/api/settings/test", dependencies=[Depends(require_auth)])
+async def api_test_settings(payload: dict):
+    """用（可选的未保存）配置发一次最小补全请求，验证连通性。
+
+    请求体字段留空时回退到已保存配置——便于"先测再存"。
+    """
+    import time as _time
+
+    import requests as _requests
+
+    from src import config as app_config
+
+    payload = payload or {}
+    saved = app_config.get_llm_config()
+    base_url = (payload.get("base_url") or "").strip() or saved["base_url"]
+    model = (payload.get("model") or "").strip() or saved["model"]
+    api_key = (payload.get("api_key") or "").strip() or saved["api_key"]
+
+    if not base_url.startswith(("http://", "https://")):
+        raise HTTPException(400, "BASE_URL 必须以 http:// 或 https:// 开头")
+    if not api_key:
+        return {"ok": False, "message": "未配置 API Key", "latency_ms": 0}
+
+    url = base_url.rstrip("/") + "/v1/chat/completions"
+    started = _time.perf_counter()
+    try:
+        resp = _requests.post(
+            url,
+            headers={"Authorization": f"Bearer {api_key}"},
+            json={
+                "model": model,
+                "messages": [{"role": "user", "content": "ping"}],
+                "max_tokens": 1,
+            },
+            timeout=15,
+        )
+    except _requests.RequestException as exc:
+        return {
+            "ok": False,
+            "message": f"连接失败：{exc.__class__.__name__}",
+            "latency_ms": 0,
+        }
+    latency = int((_time.perf_counter() - started) * 1000)
+
+    if resp.status_code == 200:
+        return {"ok": True, "message": f"连接成功（{model}）", "latency_ms": latency}
+    if resp.status_code in (401, 403):
+        return {"ok": False, "message": "认证失败：API Key 无效", "latency_ms": latency}
+    try:
+        detail = resp.json().get("error", {}).get("message", "") or resp.text[:120]
+    except ValueError:
+        detail = resp.text[:120]
+    return {"ok": False, "message": f"HTTP {resp.status_code}：{detail}", "latency_ms": latency}
+
+
+# ── 登录 / 登出（P2 最小鉴权）────────────────────────────────
 
 _LOGIN_PAGE = """<!DOCTYPE html>
 <html lang="zh-CN">

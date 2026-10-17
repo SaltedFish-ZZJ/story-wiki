@@ -1,480 +1,994 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Story Wiki</title>
-    <link rel="stylesheet" href="/static/style.css">
-    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Story Wiki</title>
+<link rel="stylesheet" href="/static/style.css">
+<script src="/static/vendor/echarts.min.js"></script>
+<script>if (typeof echarts === "undefined") document.write('<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"><\/script>');</script>
 </head>
 <body>
+<div class="gridbg"></div>
+<div class="blob b1"></div><div class="blob b2"></div>
 
-<!-- ── Navigation ─────────────────────────────────────────── -->
-<nav class="nav">
-    <span class="nav-brand">Story Wiki</span>
-    <div class="nav-links">
-        <a class="nav-link active" data-view="overview">概览</a>
-        <a class="nav-link" data-view="characters">人物</a>
-        <a class="nav-link" data-view="graph">关系图</a>
-        <a class="nav-link" data-view="timeline">时间线</a>
-        <a class="nav-link" data-view="upload">上传分析</a>
+<!-- 顶栏 -->
+<header class="topbar">
+  <div class="brand" data-goto="home">Story<em>·</em>Wiki</div>
+  <div class="searchbox">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+    <input id="q" type="text" placeholder="搜索人物、事件、设定…（跨作品）" autocomplete="off">
+    <kbd>/</kbd>
+    <div class="search-pop" id="qpop"></div>
+  </div>
+  <div class="spacer"></div>
+  <button class="navbtn" data-goto="home">首页</button>
+  <button class="navbtn" data-goto="settings">设置</button>
+  <button class="themetoggle" id="themebtn" title="明暗切换">🌙</button>
+</header>
+
+<!-- ═══ 首页 ═══ -->
+<main id="view-home">
+  <section class="hero">
+    <div class="overline">STORY · WIKI</div>
+    <h1>把一本书，变成<em>可检索的知识库</em></h1>
+    <p>AI 逐章通读你的小说、合同或传记，提炼全部人物、事件与设定，织成一张可探索的关系网</p>
+    <div class="drop" id="drop">
+      <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M12 4v12m0 0l-5-5m5 5l5-5M4 20h16"/></svg>
+      <b>把文件拖到这里，或点击选择</b>
+      <span>支持 txt / md / epub / pdf / docx，最大 100MB</span>
+      <div class="picked" id="picked"></div>
     </div>
-</nav>
-
-<!-- ── Main Content ───────────────────────────────────────── -->
-<main class="main">
-
-    <!-- 概览页 -->
-    <section id="view-overview" class="view">
-        <div class="loading" id="overview-loading">
-            <div class="spinner"></div>加载中...
-        </div>
-        <div id="overview-content" class="hidden"></div>
-    </section>
-
-    <!-- 人物列表页 -->
-    <section id="view-characters" class="view hidden">
-        <div class="search-bar">
-            <input class="search-input" id="char-search" type="text" placeholder="搜索人物名称、身份、标签...">
-        </div>
-        <div class="loading" id="char-loading">
-            <div class="spinner"></div>加载中...
-        </div>
-        <div id="char-content" class="hidden"></div>
-    </section>
-
-    <!-- 关系图谱页 -->
-    <section id="view-graph" class="view hidden">
-        <div class="graph-controls">
-            <label>中心人物：</label>
-            <select id="graph-center">
-                <option value="">全部显示</option>
-            </select>
-        </div>
-        <div class="graph-container" id="graph-chart"></div>
-    </section>
-
-    <!-- 时间线页 -->
-    <section id="view-timeline" class="view hidden">
-        <div class="filter-row">
-            <label>重要性：</label>
-            <select id="tl-importance">
-                <option value="">全部</option>
-                <option value="高">高</option>
-                <option value="中">中</option>
-                <option value="低">低</option>
-            </select>
-            <label>人物：</label>
-            <select id="tl-character">
-                <option value="">全部</option>
-            </select>
-        </div>
-        <div class="loading" id="tl-loading">
-            <div class="spinner"></div>加载中...
-        </div>
-        <div id="tl-content" class="hidden"></div>
-    </section>
-
-    <!-- 上传分析页 -->
-    <section id="view-upload" class="view hidden">
-        <div class="page-header">
-            <h1 class="page-title">上传并分析</h1>
-            <p class="page-subtitle">上传 txt / md / epub / pdf / docx 文档，AI 自动提取人物、事件、设定并生成 Obsidian 卡片</p>
-        </div>
-        <div class="upload-panel">
-            <label class="upload-drop" id="upload-drop">
-                <input type="file" id="upload-file" accept=".txt,.md,.epub,.pdf,.docx">
-                <div class="upload-drop-icon">📄</div>
-                <div>点击选择文件，或拖拽到此处</div>
-                <div class="upload-filename" id="upload-filename"></div>
-            </label>
-            <div class="upload-row">
-                <input class="upload-input" id="upload-title" type="text" placeholder="作品名（可选，默认取文件名）">
-                <button class="upload-btn" id="upload-btn" disabled>开始分析</button>
-            </div>
-            <div class="upload-progress" id="upload-progress">
-                <div class="upload-progress-bar"><div class="upload-progress-fill" id="upload-fill"></div></div>
-                <div class="upload-status" id="upload-status"></div>
-            </div>
-        </div>
-    </section>
-
+    <input type="file" id="file" class="hidden" accept=".txt,.md,.epub,.pdf,.docx">
+    <div class="upload-row">
+      <input id="upload-title" type="text" placeholder="作品名（可选，默认取文件名）">
+      <button class="startbtn" id="startbtn" disabled>开始分析</button>
+    </div>
+  </section>
+  <section class="wall">
+    <div class="sec-head"><span class="idx">01</span><h2>我的知识库</h2><span class="n" id="walln"></span></div>
+    <div class="books" id="books"></div>
+  </section>
 </main>
 
-<!-- ── Detail Drawer ──────────────────────────────────────── -->
-<div class="drawer-overlay" id="drawer-overlay"></div>
-<div class="drawer" id="drawer">
-    <div class="drawer-header">
-        <span class="drawer-title" id="drawer-title"></span>
-        <button class="drawer-close" id="drawer-close">&times;</button>
+<!-- ═══ 任务视图 ═══ -->
+<main id="view-task" class="hidden">
+  <section class="taskview">
+    <div class="taskcard">
+      <div class="task-head"><h2 id="tasktitle">分析任务</h2><span class="state" id="taskstate">排队中</span></div>
+      <div class="stages" id="stages"></div>
+      <div class="pbar"><i id="pfill"></i></div>
+      <div class="pmsg"><span id="pmsg">等待开始…</span><span class="pct" id="pct">0%</span></div>
+      <div class="logs" id="logs"></div>
+      <div class="task-done hidden" id="taskdone">
+        <button class="startbtn" id="enterbook">进入知识库</button>
+        <button class="ghostbtn" data-goto="home">返回首页</button>
+      </div>
     </div>
-    <div class="drawer-body" id="drawer-body"></div>
+  </section>
+</main>
+
+<!-- ═══ 作品内页：长滚动单页 ═══ -->
+<main id="view-book" class="hidden">
+  <section class="bookview">
+    <div class="crumbs" data-goto="home">← 返回知识库</div>
+    <div class="book-head">
+      <div>
+        <h1 id="bname">—</h1>
+        <div class="meta" id="bmeta"></div>
+      </div>
+      <div class="gauges" id="gauges"></div>
+    </div>
+
+    <nav class="pagenav" id="pagenav">
+      <a data-sec="sec-intro" class="on">简介速览</a>
+      <a data-sec="sec-graph">关系图谱</a>
+      <a data-sec="sec-timeline">章节时间线</a>
+      <a data-sec="sec-people">人物群像</a>
+      <a data-sec="sec-settings">设定与地点</a>
+    </nav>
+
+    <!-- 01 简介与速览 -->
+    <section class="bsec" id="sec-intro">
+      <div class="sec-head"><span class="idx">01</span><h2>简介与速览</h2><span class="n" id="secintro-n"></span></div>
+      <div class="ov-stack">
+        <div class="panel"><h4>简介</h4><p class="desc" id="bdesc"></p></div>
+        <div class="ov-grid">
+          <div class="panel"><h4>高频关系 · 点击任何人名查看卡片</h4>
+            <ul class="toprel" id="toprel"></ul></div>
+          <div class="panel"><h4>核心人物</h4>
+            <div class="chips" id="corechips"></div></div>
+        </div>
+        <div class="panel"><h4>章节事件密度</h4>
+          <div class="dens" id="dens"></div>
+          <div class="dens-note" id="densnote"></div>
+        </div>
+        <div class="panel"><h4>设定分布</h4>
+          <div class="chips" id="setdist"></div></div>
+      </div>
+    </section>
+
+    <!-- 02 关系图谱 -->
+    <section class="bsec" id="sec-graph">
+      <div class="sec-head"><span class="idx">02</span><h2>关系图谱</h2><span class="n">全宽大图 · 点击节点查看卡片</span></div>
+      <div class="graphwrap">
+        <div id="graph-chart"></div>
+        <div class="glegend"><span><i class="lg-main"></i>主角</span>
+          <span><i class="lg-maj"></i>重要人物</span>
+          <span><i class="lg-min"></i>次要人物</span>
+          <span style="margin-left:auto">节点可按住拖动 · 滚轮缩放</span></div>
+      </div>
+    </section>
+
+    <!-- 03 章节时间线 -->
+    <section class="bsec" id="sec-timeline">
+      <div class="sec-head"><span class="idx">03</span><h2>章节时间线</h2><span class="n" id="axn"></span></div>
+      <div class="panel" style="padding:0;overflow:hidden">
+        <div class="axbar">
+          <div class="axfilters" id="axfilters"></div>
+          <div class="axlegend">
+            <span><i style="background:color-mix(in srgb,var(--accent) 30%,transparent)"></i>少</span>
+            <span><i style="background:var(--accent)"></i>多</span>
+            <span>柱高 = 事件数 · 点击跳章</span>
+          </div>
+        </div>
+        <div class="axarc"><svg id="axsvg" viewBox="0 0 1000 132" role="img" aria-label="全书章节事件弧线"></svg></div>
+        <div class="axspine" id="axspine"></div>
+      </div>
+    </section>
+
+    <!-- 04 人物群像 -->
+    <section class="bsec" id="sec-people">
+      <div class="sec-head"><span class="idx">04</span><h2>人物群像</h2><span class="n" id="peoplen"></span></div>
+      <div id="charshost"></div>
+    </section>
+
+    <!-- 05 设定与地点 -->
+    <section class="bsec" id="sec-settings">
+      <div class="sec-head"><span class="idx">05</span><h2>设定与地点</h2><span class="n" id="setn"></span></div>
+      <div class="setgrid" id="setgrid"></div>
+      <div class="morewrap"><button class="morebtn" id="setmore" hidden></button></div>
+    </section>
+  </section>
+</main>
+
+<!-- ═══ 设置页（LLM 连接配置） ═══ -->
+<main id="view-settings" class="hidden">
+  <section class="taskview">
+    <div class="sec-head"><span class="idx">SET</span><h2>设置</h2><span class="n">配置 AI 分析使用的 OpenAI 兼容接口</span></div>
+    <div class="form-card">
+      <div class="form-field">
+        <label for="settings-preset">服务商预设</label>
+        <select id="settings-preset">
+          <option value="">— 选择预设自动填充 —</option>
+          <option value="mimo">小米 MiMo（默认）</option>
+          <option value="deepseek">DeepSeek 官方</option>
+          <option value="custom">自定义（LM Studio / vLLM / 中转站等）</option>
+        </select>
+        <p class="form-hint" id="preset-hint">选择预设填充地址与模型名；Key 需到对应平台获取。保存后写回项目根目录 .env，立即生效无需重启</p>
+      </div>
+      <div class="form-field">
+        <label for="settings-base">接口地址 BASE_URL</label>
+        <input id="settings-base" type="text" placeholder="https://api.deepseek.com" spellcheck="false">
+      </div>
+      <div class="form-field">
+        <label for="settings-key">API Key</label>
+        <input id="settings-key" type="password" placeholder="留空表示沿用已保存的 Key" autocomplete="new-password">
+        <p class="form-hint" id="key-hint"></p>
+      </div>
+      <div class="form-field">
+        <label for="settings-model">模型名</label>
+        <input id="settings-model" type="text" placeholder="deepseek-chat" spellcheck="false">
+      </div>
+      <div class="form-actions">
+        <button class="ghostbtn" id="settings-test">测试连接</button>
+        <button class="startbtn" id="settings-save">保存配置</button>
+      </div>
+      <div class="settings-status" id="settings-status"></div>
+    </div>
+  </section>
+</main>
+
+<!-- 抽屉 -->
+<div class="mask" id="mask"></div>
+<aside class="drawer" id="drawer"></aside>
+
+<!-- 状态条 -->
+<div class="statusbar">
+  <span id="sb-lib"><i class="led ok"></i>知识库加载中…</span>
+  <span id="sb-api"><i class="led info"></i>API 状态未知</span>
+  <span id="sb-auth"><i class="led ok"></i>—</span>
 </div>
+<div class="toast" id="toast"></div>
 
-<!-- ── JavaScript ─────────────────────────────────────────── -->
 <script>
-// ── State ──────────────────────────────────────────────────
-let currentBook = "";
-let bookData = { characters: {}, overview: null };
-let graphChart = null;
-let currentView = "overview";
+// ── State & helpers ────────────────────────────────────────
+const $ = s => document.querySelector(s);
+const state = { view: "home", book: null };
+const cache = {};            // title -> {overview,characters,timeline,settings,graph}
+const KINDN = { character: "人物", event: "事件", setting: "设定" };
 
-// ── API helpers ────────────────────────────────────────────
-async function api(path) {
-    const res = await fetch(path);
-    if (!res.ok) throw new Error(`API error: ${res.status}`);
-    return res.json();
-}
-
-// ── Navigation ─────────────────────────────────────────────
-document.querySelectorAll(".nav-link").forEach(link => {
-    link.addEventListener("click", () => {
-        const view = link.dataset.view;
-        switchView(view);
-    });
-});
-
-function switchView(view) {
-    currentView = view;
-    document.querySelectorAll(".nav-link").forEach(l => l.classList.remove("active"));
-    document.querySelector(`.nav-link[data-view="${view}"]`).classList.add("active");
-    document.querySelectorAll(".view").forEach(v => v.classList.add("hidden"));
-    document.getElementById(`view-${view}`).classList.remove("hidden");
-
-    if (view === "graph" && graphChart) {
-        setTimeout(() => graphChart.resize(), 100);
-    }
-}
-
-// ── Init: load book list, pick first ───────────────────────
-async function init() {
-    const { books } = await api("/api/books");
-    if (books.length === 0) {
-        document.getElementById("overview-content").innerHTML =
-            '<div class="empty-state"><div class="empty-state-icon">📚</div><div class="empty-state-text">没有找到作品，请先运行分析生成数据</div></div>';
-        document.getElementById("overview-loading").classList.add("hidden");
-        document.getElementById("overview-content").classList.remove("hidden");
-        return;
-    }
-    currentBook = books[0].title;
-    loadOverview();
-    loadCharacters();
-    loadTimeline();
-    initGraph();
-}
-
-// ── Overview ───────────────────────────────────────────────
-async function loadOverview() {
-    const data = await api(`/api/books/${encodeURIComponent(currentBook)}/overview`);
-    bookData.overview = data;
-    const el = document.getElementById("overview-content");
-    el.innerHTML = `
-        <div class="page-header">
-            <h1 class="page-title">${esc(data.title)}</h1>
-            <p class="page-subtitle">${esc(data.summary.slice(0, 80))}...</p>
-        </div>
-        <div class="stats-row">
-            <div class="stat-card"><div class="stat-number">${data.stats.characters}</div><div class="stat-label">人物</div></div>
-            <div class="stat-card"><div class="stat-number">${data.stats.events}</div><div class="stat-label">事件</div></div>
-            <div class="stat-card"><div class="stat-number">${data.stats.settings}</div><div class="stat-label">设定</div></div>
-        </div>
-        <div class="section-title">核心人物</div>
-        <div class="char-grid">
-            ${data.top_characters.map(c => charCardHTML(c)).join("")}
-        </div>
-        <div class="section-title">作品简介</div>
-        <p style="font-size:15px;line-height:1.8;color:var(--text-secondary);max-width:720px">${esc(data.summary)}</p>
-    `;
-    // 绑定卡片点击
-    el.querySelectorAll(".char-card").forEach(card => {
-        card.addEventListener("click", () => openDrawer(card.dataset.name));
-    });
-    document.getElementById("overview-loading").classList.add("hidden");
-    el.classList.remove("hidden");
-}
-
-// ── Characters ─────────────────────────────────────────────
-async function loadCharacters(query = "") {
-    const url = `/api/books/${encodeURIComponent(currentBook)}/characters` + (query ? `?q=${encodeURIComponent(query)}` : "");
-    const data = await api(url);
-    const el = document.getElementById("char-content");
-
-    let html = `<p class="section-subtitle">共 ${data.total} 人</p>`;
-    for (const [group, chars] of Object.entries(data.characters)) {
-        if (chars.length === 0) continue;
-        const icon = group === "核心人物" ? "🔴" : group === "重要配角" ? "🟡" : "⚪";
-        html += `<div class="group-header">${icon} ${group}（${chars.length}人）</div>`;
-        html += `<div class="char-grid">${chars.map(c => charCardHTML(c)).join("")}</div>`;
-    }
-    if (data.total === 0) {
-        html = '<div class="empty-state"><div class="empty-state-text">没有找到匹配的人物</div></div>';
-    }
-    el.innerHTML = html;
-    el.querySelectorAll(".char-card").forEach(card => {
-        card.addEventListener("click", () => openDrawer(card.dataset.name));
-    });
-    document.getElementById("char-loading").classList.add("hidden");
-    el.classList.remove("hidden");
-
-    // 同步筛选器
-    populateCharacterSelects(data.characters);
-}
-
-// 搜索防抖
-let searchTimer;
-document.getElementById("char-search").addEventListener("input", e => {
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => loadCharacters(e.target.value), 300);
-});
-
-// ── Character Card HTML ────────────────────────────────────
-function charCardHTML(c) {
-    const tagClass = c.color === "character-protagonist" ? "tag-protagonist" :
-                     c.color === "character-supporting" ? "tag-supporting" : "tag-minor";
-    const tags = (c.role_tags || []).map(t => `<span class="tag ${tagClass}">${esc(t)}</span>`).join("");
-    return `<div class="char-card" data-name="${esc(c.name)}">
-        <div class="char-card-name">${esc(c.name)}</div>
-        <div class="char-card-identity">${esc(c.identity || "")}</div>
-        <div class="char-card-tags">${tags}</div>
-    </div>`;
-}
-
-// ── Graph ──────────────────────────────────────────────────
-async function initGraph() {
-    const container = document.getElementById("graph-chart");
-    graphChart = echarts.init(container);
-
-    // 填充中心人物下拉
-    const { characters } = await api(`/api/books/${encodeURIComponent(currentBook)}/characters`);
-    const select = document.getElementById("graph-center");
-    for (const [group, chars] of Object.entries(characters)) {
-        const optgroup = document.createElement("optgroup");
-        optgroup.label = group;
-        chars.forEach(c => {
-            const opt = document.createElement("option");
-            opt.value = c.name;
-            opt.textContent = c.name;
-            optgroup.appendChild(opt);
-        });
-        select.appendChild(optgroup);
-    }
-
-    select.addEventListener("change", () => loadGraph(select.value));
-    loadGraph("");
-    window.addEventListener("resize", () => graphChart && graphChart.resize());
-}
-
-async function loadGraph(center) {
-    const url = `/api/books/${encodeURIComponent(currentBook)}/graph` + (center ? `?center=${encodeURIComponent(center)}` : "");
-    const data = await api(url);
-
-    const option = {
-        tooltip: {
-            trigger: "item",
-            formatter: p => p.dataType === "node"
-                ? `<b>${p.name}</b><br/>${(p.data.role_tags || []).join(" · ")}`
-                : `${p.data.source} → ${p.data.target}<br/>${p.data.label || ""}`
-        },
-        series: [{
-            type: "graph",
-            layout: "force",
-            roam: true,
-            draggable: true,
-            label: { show: true, fontSize: 10, color: "#1d1d1f" },
-            edgeLabel: { show: false },
-            force: {
-                repulsion: 200,
-                gravity: 0.1,
-                edgeLength: [80, 200],
-                layoutAnimation: true
-            },
-            data: data.nodes.map(n => ({
-                ...n,
-                label: { show: n.symbolSize >= 16 }
-            })),
-            edges: data.edges.map(e => ({
-                source: e.source,
-                target: e.target,
-                label: { show: false, formatter: e.label },
-                lineStyle: { color: "#d1d1d6", width: 1, curveness: 0.1 }
-            })),
-            emphasis: {
-                focus: "adjacency",
-                lineStyle: { width: 3 },
-                itemStyle: { shadowBlur: 10, shadowColor: "rgba(0,0,0,0.2)" }
-            }
-        }]
-    };
-
-    graphChart.setOption(option, true);
-
-    // 点击节点 → 打开详情
-    graphChart.off("click");
-    graphChart.on("click", params => {
-        if (params.dataType === "node") {
-            openDrawer(params.name);
-        }
-    });
-}
-
-// ── Timeline ───────────────────────────────────────────────
-async function loadTimeline(importance = "", character = "") {
-    let url = `/api/books/${encodeURIComponent(currentBook)}/timeline`;
-    const params = [];
-    if (importance) params.push(`importance=${encodeURIComponent(importance)}`);
-    if (character) params.push(`character=${encodeURIComponent(character)}`);
-    if (params.length) url += "?" + params.join("&");
-
-    const data = await api(url);
-    const el = document.getElementById("tl-content");
-
-    if (data.events.length === 0) {
-        el.innerHTML = '<div class="empty-state"><div class="empty-state-text">没有匹配的事件</div></div>';
-    } else {
-        el.innerHTML = `<p class="section-subtitle">共 ${data.total} 个事件</p>
-            <div class="timeline">
-                ${data.events.map(e => {
-                    const dotClass = e.importance === "高" ? "timeline-dot-high" : e.importance === "中" ? "timeline-dot-medium" : "timeline-dot-low";
-                    const meta = [e.time, e.chapter, e.importance].filter(Boolean).join(" · ");
-                    const participants = (e.participants || []).map(p => p.name).join("、");
-                    return `<div class="timeline-item" data-event="${esc(e.name)}">
-                        <div class="timeline-dot ${dotClass}"></div>
-                        <div class="timeline-name">${esc(e.name)}</div>
-                        <div class="timeline-meta">${esc(meta)}${participants ? " · 👥 " + esc(participants) : ""}</div>
-                        <div class="timeline-summary">${esc(e.summary)}</div>
-                    </div>`;
-                }).join("")}
-            </div>`;
-    }
-
-    document.getElementById("tl-loading").classList.add("hidden");
-    el.classList.remove("hidden");
-}
-
-// 时间线筛选
-document.getElementById("tl-importance").addEventListener("change", refreshTimeline);
-document.getElementById("tl-character").addEventListener("change", refreshTimeline);
-function refreshTimeline() {
-    const imp = document.getElementById("tl-importance").value;
-    const char = document.getElementById("tl-character").value;
-    document.getElementById("tl-loading").classList.remove("hidden");
-    document.getElementById("tl-content").classList.add("hidden");
-    loadTimeline(imp, char);
-}
-
-// ── Populate character selects ─────────────────────────────
-function populateCharacterSelects(groups) {
-    const tlSelect = document.getElementById("tl-character");
-    // 清空旧选项（保留"全部"）
-    while (tlSelect.options.length > 1) tlSelect.remove(1);
-    for (const chars of Object.values(groups)) {
-        chars.forEach(c => {
-            const opt = document.createElement("option");
-            opt.value = c.name;
-            opt.textContent = c.name;
-            tlSelect.appendChild(opt);
-        });
-    }
-}
-
-// ── Drawer ─────────────────────────────────────────────────
-async function openDrawer(name) {
-    const data = await api(`/api/books/${encodeURIComponent(currentBook)}/characters/${encodeURIComponent(name)}`);
-    document.getElementById("drawer-title").textContent = data.name;
-
-    const statusLine = `${data.status === "活跃" ? "🟢" : data.status === "已故" ? "⚫" : "⚪"} ${data.status}`;
-    const factionLine = data.faction ? ` · ${data.faction}` : "";
-    const tagLine = (data.role_tags || []).join(" · ");
-
-    let html = `<div class="drawer-status">${statusLine}${factionLine} · ${tagLine}</div>`;
-
-    if (data.identity) {
-        html += `<div class="drawer-section"><div class="drawer-section-title">身份</div><p>${esc(data.identity)}</p></div>`;
-    }
-    if (data.personality) {
-        html += `<div class="drawer-section"><div class="drawer-section-title">性格</div><p>${esc(data.personality)}</p></div>`;
-    }
-    if (data.relationships && data.relationships.length > 0) {
-        html += `<div class="drawer-section"><div class="drawer-section-title">人际关系（${data.relationships.length}）</div>`;
-        data.relationships.slice(0, 20).forEach(r => {
-            html += `<a class="drawer-link" href="#" onclick="openDrawer('${esc(r.name)}');return false">${esc(r.name)}<span class="drawer-link-desc"> — ${esc(r.description)}</span></a>`;
-        });
-        if (data.relationships.length > 20) html += `<p style="color:var(--text-tertiary);font-size:13px;margin-top:4px">...还有 ${data.relationships.length - 20} 条</p>`;
-        html += `</div>`;
-    }
-    if (data.events && data.events.length > 0) {
-        html += `<div class="drawer-section"><div class="drawer-section-title">参与事件（${data.events.length}）</div>`;
-        data.events.slice(0, 15).forEach(e => {
-            html += `<span class="drawer-link">${esc(e.name)}<span class="drawer-link-desc"> — ${esc(e.description)}</span></span>`;
-        });
-        if (data.events.length > 15) html += `<p style="color:var(--text-tertiary);font-size:13px;margin-top:4px">...还有 ${data.events.length - 15} 个</p>`;
-        html += `</div>`;
-    }
-    if (data.quotes) {
-        html += `<div class="drawer-section"><div class="drawer-section-title">经典语录</div><p style="font-style:italic">${esc(data.quotes.slice(0, 300))}</p></div>`;
-    }
-
-    document.getElementById("drawer-body").innerHTML = html;
-    document.getElementById("drawer-overlay").classList.add("open");
-    document.getElementById("drawer").classList.add("open");
-}
-
-document.getElementById("drawer-close").addEventListener("click", closeDrawer);
-document.getElementById("drawer-overlay").addEventListener("click", closeDrawer);
-function closeDrawer() {
-    document.getElementById("drawer-overlay").classList.remove("open");
-    document.getElementById("drawer").classList.remove("open");
-}
-
-// ── Escape HTML ────────────────────────────────────────────
 function esc(str) {
     if (!str) return "";
     return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
+function toast(m) {
+    const t = $("#toast"); t.textContent = m; t.classList.add("on");
+    clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("on"), 1800);
+}
+function handleAuthError(res) {
+    if (res.status === 401) { window.location.href = "/login"; return true; }
+    return false;
+}
+async function api(path) {
+    const res = await fetch(path);
+    if (handleAuthError(res)) throw new Error("需要登录");
+    if (!res.ok) {
+        const detail = await res.json().catch(() => ({}));
+        throw new Error(detail.detail || `API error: ${res.status}`);
+    }
+    return res.json();
+}
 
-// ── Upload & Analyze (P1) ─────────────────────────────────
-const uploadFileInput = document.getElementById("upload-file");
-const uploadBtn = document.getElementById("upload-btn");
-const uploadDrop = document.getElementById("upload-drop");
-let pollingTimer = null;
+// ── 主题切换 ───────────────────────────────────────────────
+function applyTheme(dark, persist) {
+    document.body.classList.toggle("dark", dark);
+    $("#themebtn").textContent = dark ? "☀️" : "🌙";
+    if (persist) localStorage.setItem("sw-theme", dark ? "dark" : "light");
+    if (state.view === "book" && state.book) renderGraph();
+}
+$("#themebtn").addEventListener("click", () =>
+    applyTheme(!document.body.classList.contains("dark"), true));
+applyTheme(localStorage.getItem("sw-theme") === "dark", false);
 
-uploadFileInput.addEventListener("change", () => {
-    const f = uploadFileInput.files[0];
-    document.getElementById("upload-filename").textContent = f ? f.name : "";
-    uploadBtn.disabled = !f;
-});
+// ── 视图切换 ───────────────────────────────────────────────
+function show(view) {
+    state.view = view;
+    ["home", "task", "book", "settings"].forEach(v =>
+        $("#view-" + v).classList.toggle("hidden", v !== view));
+    window.scrollTo({ top: 0 });
+    if (view === "settings" && !settingsLoaded) { settingsLoaded = true; loadSettings(); }
+}
+document.querySelectorAll("[data-goto]").forEach(b =>
+    b.addEventListener("click", () => show(b.dataset.goto)));
 
-// 拖拽支持
-["dragover", "dragleave", "drop"].forEach(ev => {
-    uploadDrop.addEventListener(ev, e => {
-        e.preventDefault();
-        uploadDrop.classList.toggle("dragover", ev === "dragover");
-        if (ev === "drop" && e.dataTransfer.files.length) {
-            uploadFileInput.files = e.dataTransfer.files;
-            uploadFileInput.dispatchEvent(new Event("change"));
-        }
-    });
-});
+// ── 书籍数据缓存（每本书独立，避免切换串扰） ────────────────
+async function ensureBookData(title) {
+    if (cache[title]) return cache[title];
+    const t = encodeURIComponent(title);
+    const [overview, characters, timeline, settings, graph] = await Promise.all([
+        api(`/api/books/${t}/overview`),
+        api(`/api/books/${t}/characters`),
+        api(`/api/books/${t}/timeline`),
+        api(`/api/books/${t}/settings`),
+        api(`/api/books/${t}/graph`),
+    ]);
+    cache[title] = { overview, characters, timeline, settings, graph };
+    return cache[title];
+}
 
-uploadBtn.addEventListener("click", uploadAndAnalyze);
+// ── 作品墙 ─────────────────────────────────────────────────
+function entCount(ov) { return ov ? ov.stats.characters + ov.stats.events + ov.stats.settings : 0; }
+async function loadWall() {
+    const { books } = await api("/api/books");
+    if (!books.length) {
+        $("#walln").textContent = "";
+        $("#books").innerHTML = '<div class="wall-empty">还没有作品 —— 把第一部小说拖到上方开始分析吧</div>';
+        updateStatusbarLib(0, 0);
+        return;
+    }
+    const ovs = await Promise.all(books.map(b =>
+        api(`/api/books/${encodeURIComponent(b.title)}/overview`).catch(() => null)));
+    const rows = books.map((b, i) => ({ title: b.title, ov: ovs[i] }));
+    $("#walln").textContent =
+        `${rows.length} 部作品 · ${rows.reduce((s, r) => s + entCount(r.ov), 0).toLocaleString()} 个实体`;
+    $("#books").innerHTML = rows.map(r => {
+        const s = r.ov ? r.ov.stats : { characters: "–", events: "–", settings: "–" };
+        const span = r.ov && r.ov.summary ? esc(r.ov.summary.slice(0, 40)) + "…" : "";
+        return `<button class="bookcard" data-book="${esc(r.title)}">
+            <h3>${esc(r.title)}</h3><div class="span">${span}</div>
+            <div class="nums">
+              <div><b class="bignum">${s.characters}</b><s>人物</s></div>
+              <div><b>${s.events}</b><s>事件</s></div>
+              <div><b>${s.settings}</b><s>设定</s></div>
+            </div></button>`;
+    }).join("");
+    $("#books").querySelectorAll("[data-book]").forEach(el =>
+        el.addEventListener("click", () => openBook(el.dataset.book)));
+    updateStatusbarLib(rows.length, rows.reduce((s, r) => s + entCount(r.ov), 0));
+}
 
-async function uploadAndAnalyze() {
-    const file = uploadFileInput.files[0];
-    if (!file) return;
-    uploadBtn.disabled = true;
-    setProgress(3, "上传中...", "");
+// ── 书内页：单页渲染全部章节 ───────────────────────────────
+async function openBook(title) {
+    show("book");
+    state.book = null;
+    $("#bname").textContent = title;
+    $("#bmeta").textContent = "加载中…";
     try {
-        // 1. 上传文件
+        await ensureBookData(title);
+    } catch (err) {
+        $("#bmeta").textContent = "加载失败：" + err.message;
+        return;
+    }
+    state.book = title;
+    renderBook();
+    requestAnimationFrame(watchSections);
+}
+
+function renderBook() {
+    const d = cache[state.book], ov = d.overview;
+    $("#bname").textContent = ov.title || state.book;
+    $("#bmeta").textContent = ov.summary ? ov.summary.slice(0, 80) : "";
+    $("#gauges").innerHTML = `
+        <div><b class="hi">${ov.stats.characters}</b><s>人物</s></div>
+        <div><b>${ov.stats.events}</b><s>事件</s></div>
+        <div><b>${ov.stats.settings}</b><s>设定</s></div>`;
+    renderIntro();
+    renderGraph();
+    renderAxis(true);
+    renderChars();
+    renderSettingGrid();
+}
+
+function bindOpen(root, kind) {
+    root.querySelectorAll("[data-open]").forEach(el =>
+        el.addEventListener("click", () => openEntity(el.dataset.open, kind)));
+}
+
+function renderIntro() {
+    const d = cache[state.book], ov = d.overview;
+    $("#bdesc").textContent = ov.summary || "（本书未生成简介）";
+    $("#secintro-n").textContent = "① 高频关系 ② 核心人物 ③ 章节密度 ④ 设定分布";
+    // 核心人物
+    $("#corechips").innerHTML = (ov.top_characters || []).map(c =>
+        `<span class="chip" data-open="${esc(c.name)}">${esc(c.name)}</span>`).join("")
+        || '<span class="chip plain">暂无</span>';
+    bindOpen($("#corechips"), "character");
+    // 高频关系 TOP5：从人物卡 relationships 统计共现次数
+    const freq = {};
+    for (const g of Object.values(d.characters.characters)) {
+        for (const c of g) {
+            for (const r of (c.relationships || [])) {
+                if (!r.name || r.name === c.name) continue;
+                const key = [c.name, r.name].sort().join("◇");
+                const it = freq[key] || (freq[key] = { a: c.name, b: r.name, label: r.description || "", n: 0 });
+                it.n++;
+            }
+        }
+    }
+    const top = Object.values(freq).sort((x, y) => y.n - x.n).slice(0, 5);
+    $("#toprel").innerHTML = top.map((r, i) =>
+        `<li data-open="${esc(r.a)}"><span class="rk">0${i + 1}</span><b>${esc(r.a)} — ${esc(r.b)}</b><span class="rel">${esc(r.label.slice(0, 8)) || "关系"}</span></li>`).join("")
+        || "<li>暂无关系数据</li>";
+    bindOpen($("#toprel"), "character");
+    // 章节事件密度（从事件的 chapter 字段前端聚合）
+    const dens = chapterDensity(d.timeline.events);
+    if (dens.length) {
+        const max = Math.max(...dens.map(x => x.count));
+        $("#dens").innerHTML = dens.map(x => `
+            <div class="bar ${x.count === max ? "max" : ""}" title="第 ${x.ch} 章 · ${x.count} 个事件">
+              <i style="height:${Math.round(x.count / max * 100)}%"></i><s>${x.ch}</s></div>`).join("");
+        const peak = dens.find(x => x.count === max);
+        $("#densnote").textContent =
+            `全书 ${dens.length} 章有事件 · 峰值第 ${peak.ch} 章（${peak.count} 个事件）—— 高柱即高潮章`;
+    } else {
+        $("#dens").innerHTML = "";
+        $("#densnote").textContent = "事件未标注章节号，无法聚合密度";
+    }
+    // 设定分布
+    const byType = {};
+    d.settings.settings.forEach(s => {
+        const t = s.setting_type || "概念"; byType[t] = (byType[t] || 0) + 1;
+    });
+    $("#setdist").innerHTML = Object.entries(byType).sort((a, b) => b[1] - a[1]).map(([t, n]) =>
+        `<span class="chip plain">${esc(t)} · ${n}</span>`).join("")
+        + `<span class="chip plain">共 ${d.settings.total}（全书）</span>`;
+}
+
+// 中文数字 → 阿拉伯数字（第X章解析用）
+function cnNum(s) {
+    if (/^\d+$/.test(s)) return parseInt(s, 10);
+    const D = { "零": 0, "一": 1, "二": 2, "两": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9 };
+    let total = 0, cur = 0;
+    for (const ch of s) {
+        if (D[ch] !== undefined) cur = D[ch];
+        else if (ch === "十") { total += (cur || 1) * 10; cur = 0; }
+        else if (ch === "百") { total += (cur || 1) * 100; cur = 0; }
+        else if (ch === "千") { total += (cur || 1) * 1000; cur = 0; }
+    }
+    return total + cur;
+}
+function chapterNum(ch) {
+    if (!ch) return 0;
+    const m = String(ch).match(/第([0-9零一二两三四五六七八九十百千]+)章/);
+    return m ? cnNum(m[1]) : 0;
+}
+function chapterDensity(events) {
+    const map = {};
+    events.forEach(e => {
+        const n = chapterNum(e.chapter);
+        if (n) map[n] = (map[n] || 0) + 1;
+    });
+    return Object.keys(map).map(Number).sort((a, b) => a - b).map(ch => ({ ch, count: map[ch] }));
+}
+
+// ── 02 关系图谱（ECharts force，套 v7 主题色） ─────────────
+let graphChart = null;
+function themeColor(name) { return getComputedStyle(document.body).getPropertyValue(name).trim(); }
+function renderGraph() {
+    const d = cache[state.book];
+    const host = $("#graph-chart");
+    if (typeof echarts === "undefined") {  // 本地与 CDN 都加载失败时不阻塞后续章节
+        host.innerHTML = '<div class="wall-empty" style="padding:40px;text-align:center">图表库加载失败，请检查网络后刷新</div>';
+        return;
+    }
+    if (!graphChart) {
+        graphChart = echarts.init(host);
+        window.addEventListener("resize", () => graphChart && graphChart.resize());
+    }
+    const card = themeColor("--card"), ink = themeColor("--ink"),
+          sub = themeColor("--sub"), line2 = themeColor("--line2"),
+          bad = themeColor("--bad"), accent = themeColor("--accent");
+    // 后端 apple 色系 → v7 主题色
+    const cmap = { "#ff3b30": bad, "#007aff": accent, "#8e8e93": sub };
+    const nodes = d.graph.nodes.map(n => ({
+        ...n,
+        name: n.name || n.id,  // ECharts 以 name 为准：不补则点击 params.name 为空串
+        symbolSize: n.symbolSize >= 20 ? 30 : n.symbolSize >= 12 ? 18 : 12,
+        itemStyle: { color: cmap[n.itemStyle && n.itemStyle.color] || sub, borderColor: card, borderWidth: 2 },
+    }));
+    graphChart.setOption({
+        backgroundColor: "transparent",
+        tooltip: {
+            trigger: "item",
+            backgroundColor: card, borderColor: line2, textStyle: { color: ink },
+            formatter: p => p.dataType === "node"
+                ? `<b>${esc(p.name)}</b><br/>${esc((p.data.role_tags || []).join(" · "))}`
+                : `${esc(p.data.source)} → ${esc(p.data.target)}<br/>${esc(p.data.label || "")}`,
+        },
+        series: [{
+            type: "graph", layout: "force", roam: true, draggable: true,
+            force: { repulsion: 380, gravity: 0.06, edgeLength: [60, 200], layoutAnimation: true },
+            data: nodes,
+            label: {
+                show: true, color: ink, fontSize: 12,
+                position: "bottom", distance: 5,  // 名字挂节点下方，不压圆心
+                textBorderColor: card, textBorderWidth: 3,  // 描边光晕，浅色背景上也清晰
+            },
+            labelLayout: { hideOverlap: true },  // 自动隐藏重叠标签，悬停可看全部
+            edges: d.graph.edges.map(e => ({
+                source: e.source, target: e.target,
+                label: { show: false, formatter: e.label },
+                lineStyle: { color: line2, width: 1, curveness: 0.12 },
+            })),
+            emphasis: {
+                focus: "adjacency",
+                label: { show: true, fontWeight: 600 },
+                lineStyle: { width: 2.5 },
+                itemStyle: { shadowBlur: 12, shadowColor: "rgba(0,0,0,.25)" },
+            },
+        }],
+    }, true);
+    graphChart.off("click");
+    graphChart.on("click", params => {
+        if (params.dataType === "node") openEntity(params.name, "character");
+    });
+}
+
+// ── 03 章节时间线：弧线带（全书导航）+ 竖向卷轴（章节详情） ──
+const IMPCLS = { "高": "hi", "中": "md", "低": "lo" };
+const AX_BATCH = 50, AX_FULL = 60, AX_SEG_TH = 240;   // 卷轴增量批量 / 全量阈值 / 弧线分段阈值
+let axFilter = "高", axOpen = 0, axGroups = [], axMaxN = 1, axShown = 0, axObserver = null;
+function renderAxis(reset) {
+    const evs = cache[state.book].timeline.events;
+    const counts = { "高": 0, "中": 0, "低": 0 };
+    evs.forEach(e => { if (counts[e.importance] != null) counts[e.importance]++; });
+    $("#axn").textContent = `${evs.length} 个事件 · 弧线跳章 · 点章节展开`;
+    if (reset) axFilter = counts["高"] ? "高" : "全部";
+    $("#axfilters").innerHTML = ["高", "中", "低", "全部"].map(f => {
+        const n = f === "全部" ? evs.length : counts[f];
+        return `<button class="axbtn${f === axFilter ? " on" : ""}" data-f="${f}">${f} · ${n}</button>`;
+    }).join("");
+    $("#axfilters").querySelectorAll(".axbtn").forEach(b =>
+        b.addEventListener("click", () => {
+            axFilter = b.dataset.f;
+            $("#axfilters").querySelectorAll(".axbtn").forEach(x =>
+                x.classList.toggle("on", x.dataset.f === axFilter));
+            regroup();
+            axShown = 0;
+            if (!axGroups.some(g => g.ch === axOpen)) {
+                const top = axTopGroup();
+                axOpen = top ? top.ch : -1;
+            }
+            drawArc();
+            drawSpine();
+        }));
+    regroup();
+    axShown = 0;
+    if (reset || !axGroups.some(g => g.ch === axOpen)) {
+        const top = axTopGroup();
+        axOpen = top ? top.ch : -1;
+    }
+    drawArc();
+    drawSpine();
+}
+function regroup() {
+    const list = cache[state.book].timeline.events
+        .filter(e => axFilter === "全部" || e.importance === axFilter)
+        .slice()
+        .sort((a, b) => chapterNum(a.chapter) - chapterNum(b.chapter));
+    axGroups = [];
+    let last = null;
+    for (const e of list) {
+        const n = chapterNum(e.chapter);
+        if (n !== last) { axGroups.push({ ch: n, events: [] }); last = n; }
+        axGroups[axGroups.length - 1].events.push(e);
+    }
+    axMaxN = Math.max(1, ...axGroups.map(g => g.events.length));
+}
+// 默认展开/峰值标注目标：优先有章节号的组，「未标章」兜底
+function axTopGroup() {
+    const withCh = axGroups.filter(g => g.ch > 0);
+    const pool = withCh.length ? withCh : axGroups;
+    return pool.slice().sort((a, b) => b.events.length - a.events.length)[0] || null;
+}
+function drawArc() {
+    const svg = $("#axsvg");
+    const maxCh = Math.max(0, ...axGroups.map(g => g.ch));
+    if (!maxCh) { svg.innerHTML = ""; return; }
+    const W = 1000, x0 = 20, base = 106, maxH = 82;
+    const byCh = new Map(axGroups.map(g => [g.ch, g.events.length]));
+    // 统一柱条模型：章模式（每章一柱）；超长书段模式（每柱代表 N 章，恒定 ≤120 柱保证可点击）
+    const seg = maxCh > AX_SEG_TH ? Math.ceil(maxCh / 120) : 0;
+    const items = [];
+    if (!seg) {
+        const step = (W - x0 * 2) / maxCh, bw = Math.max(4, step - 3);
+        for (let ch = 1; ch <= maxCh; ch++)
+            items.push({ cx: x0 + (ch - 1) * step + step / 2, bw, n: byCh.get(ch) || 0, jump: ch, label: `第${ch}章` });
+    } else {
+        const nseg = Math.ceil(maxCh / seg), step = (W - x0 * 2) / nseg, bw = Math.max(4, step - 3);
+        for (let i = 0; i < nseg; i++) {
+            const s = i * seg + 1, e = Math.min(maxCh, (i + 1) * seg);
+            let n = 0;
+            for (let ch = s; ch <= e; ch++) n += byCh.get(ch) || 0;
+            items.push({ cx: x0 + (i + 0.5) * step, bw, n, s, e, label: `第${s}-${e}章` });
+        }
+    }
+    const maxN = Math.max(1, ...items.map(t => t.n));
+    let bars = "";
+    for (const t of items) {
+        const x = (t.cx - t.bw / 2).toFixed(1);
+        if (!t.n) {
+            if (!seg) bars += `<rect class="axstub" x="${x}" y="102" width="2" height="4" rx="1"/>`;
+            continue;
+        }
+        const h = Math.max(6, (t.n / maxN) * maxH);
+        const r = t.n / maxN;
+        const d = r > 0.75 ? "d4" : r > 0.5 ? "d3" : r > 0.25 ? "d2" : "d1";
+        const sel = seg ? (axOpen >= t.s && axOpen <= t.e) : axOpen === t.jump;
+        const attrs = seg ? `data-s="${t.s}" data-e="${t.e}"` : `data-ch="${t.jump}"`;
+        bars += `<rect class="axb ${d}${sel ? " sel" : ""}" ${attrs} x="${x}" y="${(base - h).toFixed(1)}" width="${t.bw.toFixed(1)}" height="${h.toFixed(1)}" rx="2"><title>${t.label} · ${t.n} 个事件</title></rect>`;
+    }
+    // 峰值柱胶囊标注
+    const peak = items.slice().sort((a, b) => b.n - a.n)[0];
+    let cap = "";
+    if (peak && peak.n > 0) {
+        const label = `${peak.label} · ${peak.n}事件`;
+        const wcap = label.length * 12 + 20;
+        const cx = Math.min(W - 12 - wcap, Math.max(12, peak.cx - wcap / 2));
+        const topY = Math.max(4, base - Math.max(6, (peak.n / maxN) * maxH) - 30);
+        cap = `<rect class="axcap" x="${cx.toFixed(1)}" y="${topY.toFixed(1)}" width="${wcap}" height="22" rx="11"/><text class="axcapt" x="${(cx + wcap / 2).toFixed(1)}" y="${(topY + 15).toFixed(1)}" text-anchor="middle">${label}</text>`;
+    }
+    // 刻度
+    let ticks = "";
+    if (!seg) {
+        const every = maxCh > 60 ? 20 : 10, step = (W - x0 * 2) / maxCh;
+        for (let ch = every; ch <= maxCh; ch += every)
+            ticks += `<text class="axtick" x="${(x0 + (ch - 1) * step + step / 2).toFixed(1)}" y="124" text-anchor="middle">第${ch}章</text>`;
+    } else {
+        const nseg = Math.ceil(maxCh / seg), step = (W - x0 * 2) / nseg;
+        for (let i = 4; i < nseg; i += 5)
+            ticks += `<text class="axtick" x="${(x0 + (i + 0.5) * step).toFixed(1)}" y="124" text-anchor="middle">第${i * seg + 1}章</text>`;
+    }
+    svg.innerHTML = `<line class="axaxis" x1="${x0}" y1="${base}" x2="${W - x0}" y2="${base}"/>` + ticks + bars + cap;
+    svg.querySelectorAll(".axb").forEach(b =>
+        b.addEventListener("click", () => {
+            // 章模式精确跳章；段模式跳到段内第一个有事件的章
+            const g = b.dataset.ch
+                ? axGroups.find(x => x.ch === +b.dataset.ch)
+                : axGroups.find(x => x.ch >= +b.dataset.s && x.ch <= +b.dataset.e);
+            if (!g) return;
+            axOpen = g.ch;
+            drawArc();
+            drawSpine();
+            const row = document.getElementById(`axch-${g.ch}`);
+            if (row) row.scrollIntoView({ behavior: "smooth", block: "center" });
+        }));
+}
+function axWho(ps) {
+    return ps.slice(0, 4).map(p =>
+        `<span class="axwho" data-who="${esc(p.name)}" title="${esc(p.name)}">${esc((p.name || "?")[0])}</span>`).join("")
+        + (ps.length > 4 ? `<span class="axwho more">+${ps.length - 4}</span>` : "");
+}
+function axRowHTML(g) {
+    const open = g.ch === axOpen;
+    const r = g.events.length / axMaxN;
+    const d = g.ch ? (r > 0.75 ? "d4" : r > 0.5 ? "d3" : r > 0.25 ? "d2" : "d1") : "d0";
+    const cards = g.events.slice(0, 6).map(e => `
+      <div class="axec ${IMPCLS[e.importance] || ""}">
+        <b data-open="${esc(e.name)}" title="${esc(e.name)}">${esc(e.name)}</b>
+        <div class="axecm">${esc(e.chapter || "时间不详")}${e.importance ? ` · 重要度 ${e.importance}` : ""}</div>
+        ${(e.participants || []).length ? `<div class="axews">${axWho(e.participants)}</div>` : ""}
+      </div>`).join("");
+    const rest = g.events.length > 6
+        ? `<div class="axecm" style="padding:2px 4px">还有 ${g.events.length - 6} 个事件 · 点击事件名查看完整卡片</div>` : "";
+    const prev = open ? "" :
+        `<div class="axprev">${g.events.slice(0, 2).map(e => esc(e.name)).join(" · ")}${g.events.length > 2 ? " …" : ""}</div>`;
+    return `<div class="axrow" id="axch-${g.ch}">
+      <div class="axnode ${d}"></div>
+      <div class="axch${open ? " open" : ""}" data-ch="${g.ch}">
+        <div class="axchh"><span class="axchn">${g.ch ? `第${g.ch}章` : "未标章"}</span>
+          <span class="axchc">${g.events.length} 个事件</span><span class="axcar">▶</span></div>
+        ${prev}
+        <div class="axcards">${cards}${rest}</div>
+      </div>
+    </div>`;
+}
+function drawSpine() {
+    const host = $("#axspine");
+    if (!axGroups.length) {
+        host.innerHTML = '<div class="wall-empty" style="padding:34px;text-align:center">该筛选下没有带章节号的事件</div>';
+        return;
+    }
+    // 展开的组必须已渲染；超过 AX_FULL 组的长书启用增量渲染（滚动到底自动追加）
+    const openIdx = axGroups.findIndex(g => g.ch === axOpen);
+    const target = axGroups.length <= AX_FULL ? axGroups.length
+        : Math.min(axGroups.length, Math.max(AX_BATCH, openIdx + 1));
+    axShown = Math.min(axGroups.length, Math.max(axShown, target));
+    const more = axGroups.length - axShown;
+    host.innerHTML = axGroups.slice(0, axShown).map(axRowHTML).join("")
+        + (more > 0 ? `<div class="axsent" id="axsent">↓ 还有 ${more} 章 · 滚动自动加载</div>` : "");
+    // host 级事件委托：人物圆点 > 事件名 > 章节开合（追加行无需重复绑定）
+    host.onclick = ev => {
+        const w = ev.target.closest(".axwho[data-who]");
+        if (w) { openEntity(w.dataset.who, "character"); return; }
+        const o = ev.target.closest("[data-open]");
+        if (o) { openEntity(o.dataset.open, "event"); return; }
+        const ch = ev.target.closest(".axch");
+        if (ch) {
+            const n = +ch.dataset.ch;
+            axOpen = axOpen === n ? -1 : n;
+            drawArc();
+            drawSpine();
+        }
+    };
+    // 滚动加载哨兵
+    if (axObserver) axObserver.disconnect();
+    const sent = $("#axsent");
+    if (sent) {
+        axObserver = new IntersectionObserver(es => {
+            if (es.some(e => e.isIntersecting)) appendNextBatch();
+        }, { rootMargin: "400px" });
+        axObserver.observe(sent);
+    }
+}
+function appendNextBatch() {
+    if (axShown >= axGroups.length) return;
+    const from = axShown;
+    axShown = Math.min(axGroups.length, axShown + AX_BATCH);
+    const sent = $("#axsent");
+    if (!sent) return;
+    sent.insertAdjacentHTML("beforebegin", axGroups.slice(from, axShown).map(axRowHTML).join(""));
+    if (axShown >= axGroups.length) sent.remove();
+    else sent.textContent = `↓ 还有 ${axGroups.length - axShown} 章 · 滚动自动加载`;
+}
+
+// ── 04 人物群像（重要优先，其余折叠进「更多」） ─────────────
+function wireMore(root) {
+    root.querySelectorAll("[data-more]").forEach(btn =>
+        btn.addEventListener("click", () => {
+            const grp = btn.closest(".m-group");
+            const open = grp.classList.toggle("open");
+            grp.querySelectorAll(".extra").forEach(el => el.style.display = open ? "" : "none");
+            btn.textContent = open ? btn.dataset.less : btn.dataset.more;
+        }));
+}
+function renderChars() {
+    const d = cache[state.book];
+    const ROLE = { "核心人物": ["主角", "main"], "重要配角": ["重要", "maj"], "其他人物": ["次要", "min"] };
+    const CAP = 12;
+    let total = 0;
+    $("#charshost").innerHTML = Object.entries(d.characters.characters)
+        .filter(([, arr]) => arr.length).map(([g, arr]) => {
+            total += arr.length;
+            const [label, cls] = ROLE[g] || ROLE["其他人物"];
+            const cards = arr.map((c, i) => `
+              <button class="charcard${i >= CAP ? " extra" : ""}"${i >= CAP ? ' style="display:none"' : ""} data-open="${esc(c.name)}">
+                <span class="role ${cls}">${label}</span>
+                <b>${esc(c.name)}</b><s>${esc(c.identity || "")}</s>
+              </button>`).join("");
+            const more = arr.length > CAP
+                ? `<div class="morewrap"><button class="morebtn" data-more="展开全部 ${arr.length} 人" data-less="收起">展开全部 ${arr.length} 人</button></div>` : "";
+            return `<div class="char-group m-group"><h4>${g} · ${arr.length}</h4>
+                <div class="chars">${cards}</div>${more}</div>`;
+        }).join("");
+    $("#peoplen").textContent = `${total} 人 · 重要人物优先，次要人物收进「更多」`;
+    wireMore($("#charshost"));
+    bindOpen($("#charshost"), "character");
+}
+
+// ── 05 设定与地点（按关联度排序，重要优先，其余收进「更多」） ──
+function renderSettingGrid() {
+    const d = cache[state.book];
+    const CAP = 12;
+    const scored = d.settings.settings
+        .map(s => ({ ...s, _sc: (s.characters?.length || 0) + (s.events?.length || 0) }))
+        .sort((a, b) => b._sc - a._sc);
+    $("#setn").textContent = `${d.settings.total} 个 · 按关联度排序，重要设定优先`;
+    $("#setgrid").innerHTML = scored.map((s, i) => `
+        <button class="setcard${i >= CAP ? " extra" : ""}"${i >= CAP ? ' style="display:none"' : ""} data-open="${esc(s.name)}">
+          <span class="tag">${esc(s.setting_type || "设定")}${s._sc ? ` · 关联 ${s._sc}` : ""}</span>
+          <b>${esc(s.name)}</b>
+          <p>${esc((s.description || "").slice(0, 90))}</p>
+        </button>`).join("") || '<div class="wall-empty">暂无设定数据</div>';
+    const btn = $("#setmore");
+    if (scored.length > CAP) {
+        btn.hidden = false;
+        btn.dataset.more = `展开全部 ${scored.length} 个设定`;
+        btn.dataset.less = "收起";
+        btn.textContent = btn.dataset.more;
+        btn.onclick = () => {
+            const open = btn.textContent === btn.dataset.more;
+            $("#setgrid").querySelectorAll(".extra").forEach(el => el.style.display = open ? "" : "none");
+            btn.textContent = open ? btn.dataset.less : btn.dataset.more;
+        };
+    } else {
+        btn.hidden = true;
+    }
+    bindOpen($("#setgrid"), "setting");
+}
+
+// ── 页内目录：滚动高亮 ─────────────────────────────────────
+let secObserver = null;
+function watchSections() {
+    if (secObserver) secObserver.disconnect();
+    const links = document.querySelectorAll("#pagenav a");
+    secObserver = new IntersectionObserver(entries => {
+        entries.forEach(en => {
+            if (en.isIntersecting)
+                links.forEach(a => a.classList.toggle("on", a.dataset.sec === en.target.id));
+        });
+    }, { rootMargin: "-30% 0px -60% 0px" });
+    document.querySelectorAll(".bsec").forEach(s => secObserver.observe(s));
+}
+document.querySelectorAll("#pagenav a").forEach(a =>
+    a.addEventListener("click", () =>
+        document.getElementById(a.dataset.sec).scrollIntoView({ behavior: "smooth", block: "start" })));
+
+// ── 抽屉（人物走 API；事件/设定用已缓存数据） ───────────────
+async function openEntity(name, kind, book) {
+    book = book || state.book;
+    if (!book) { toast("请先进入一部作品"); return; }
+    name = (name || "").trim();
+    if (!name) { toast("未找到实体信息"); return; }
+    let data;
+    try { data = await ensureBookData(book); }
+    catch (err) { toast("加载失败：" + err.message); return; }
+
+    if (kind === "character") {
+        let c = null;
+        try {
+            c = await api(`/api/books/${encodeURIComponent(book)}/characters/${encodeURIComponent(name)}`);
+        } catch (e) { /* 回退到分组缓存 */ }
+        if (!c) {
+            for (const g of Object.values(data.characters.characters)) {
+                const f = g.find(x => x.name === name);
+                if (f) { c = f; break; }
+            }
+        }
+        if (!c) {
+            // 人物未建卡时，从事件卡参与人物字段聚合出降级卡片，避免点击成死胡同
+            const evs = data.timeline.events.filter(e =>
+                (e.participants || []).some(p => p.name === name));
+            if (evs.length) { renderGhostCharacterDrawer(name, evs, book); return; }
+            toast(`未找到人物「${name}」`); return;
+        }
+        renderCharacterDrawer(c, book);
+    } else if (kind === "event") {
+        const e = data.timeline.events.find(x => x.name === name);
+        if (!e) { toast(`未找到事件「${name}」`); return; }
+        renderEventDrawer(e, book);
+    } else {
+        const s = data.settings.settings.find(x => x.name === name);
+        if (!s) { toast(`未找到设定「${name}」`); return; }
+        renderSettingDrawer(s, book);
+    }
+}
+
+// 未建卡人物的降级抽屉：从事件卡参与人物字段聚合生成
+function renderGhostCharacterDrawer(name, evs, book) {
+    let body = `<div class="dr-sec"><p>该人物暂无独立卡片（分析时未建卡），以下由 ${evs.length} 个事件的参与人物字段聚合生成。</p></div>`;
+    body += `<div class="dr-sec"><h5>参与事件 · 点击跳转（${evs.length}）</h5><div class="chips">
+        ${evs.slice(0, 12).map(e =>
+            `<span class="chip" data-rel="${esc(e.name)}" data-kind="event">${esc(e.name)}</span>`).join("")}
+        </div></div>`;
+    body += `<div class="src-note">提示：重新分析本作品后可为该人物生成完整卡片</div>`;
+    $("#drawer").innerHTML = drawerHead("character", name, ["未建卡 · 事件聚合"]) + `<div class="dr-body">${body}</div>`;
+    wireDrawer(book);
+}
+function drawerHead(kind, name, tags) {
+    return `<div class="dr-head"><div class="kind">${KINDN[kind]}</div><h2>${esc(name)}</h2>
+        <div class="tags">${(tags || []).filter(Boolean).map(t => `<span>${esc(t)}</span>`).join("")}</div>
+        <button class="dr-close" id="drclose">✕</button></div>`;
+}
+function wireDrawer(book) {
+    $("#drclose").addEventListener("click", closeDrawer);
+    $("#drawer").querySelectorAll("[data-rel]").forEach(el =>
+        el.addEventListener("click", () => openEntity(el.dataset.rel, el.dataset.kind, book)));
+    $("#drawer").classList.add("on"); $("#mask").classList.add("on");
+}
+function renderCharacterDrawer(c, book) {
+    const tags = [
+        (c.status === "活跃" ? "🟢 " : c.status === "已故" ? "⚫ " : "⚪ ") + c.status,
+        c.faction, ...(c.role_tags || []),
+    ];
+    let body = "";
+    if (c.identity) body += `<div class="dr-sec"><h5>身份</h5><p>${esc(c.identity)}</p></div>`;
+    if (c.personality) body += `<div class="dr-sec"><h5>性格</h5><p>${esc(c.personality)}</p></div>`;
+    if (c.relationships && c.relationships.length) {
+        body += `<div class="dr-sec"><h5>人际关系 · 点击跳转（${c.relationships.length}）</h5><ul class="rel-list">
+            ${c.relationships.slice(0, 20).map(r =>
+                `<li data-rel="${esc(r.name)}" data-kind="character"><b>${esc(r.name)}</b><s>${esc(r.description || "")}</s></li>`).join("")}
+            </ul></div>`;
+    }
+    if (c.events && c.events.length) {
+        body += `<div class="dr-sec"><h5>参与事件 · 点击跳转（${c.events.length}）</h5><div class="chips">
+            ${c.events.slice(0, 12).map(e =>
+                `<span class="chip" data-rel="${esc(e.name)}" data-kind="event">${esc(e.name)}</span>`).join("")}
+            </div></div>`;
+    }
+    if (c.related_settings && c.related_settings.length) {
+        body += `<div class="dr-sec"><h5>关联设定</h5><div class="chips">
+            ${c.related_settings.slice(0, 10).map(s =>
+                `<span class="chip" data-rel="${esc(s.name)}" data-kind="setting">${esc(s.name)}</span>`).join("")}
+            </div></div>`;
+    }
+    if (c.quotes) body += `<div class="dr-sec"><h5>经典语录</h5><p class="quote">${esc(c.quotes.slice(0, 300))}</p></div>`;
+    body += `<div class="src-note">原始卡片：data/output/${esc(book)}/characters/…/${esc(c.name)}.md</div>`;
+    $("#drawer").innerHTML = drawerHead("character", c.name, tags) + `<div class="dr-body">${body}</div>`;
+    wireDrawer(book);
+}
+function renderEventDrawer(e, book) {
+    let body = `<div class="dr-sec"><h5>时间与出处</h5><p>${esc([e.chapter, e.time].filter(Boolean).join(" · ") || "时间不详")} · 重要性：${esc(e.importance || "中")}</p></div>`;
+    if (e.summary) body += `<div class="dr-sec"><h5>经过</h5><p>${esc(e.summary)}</p></div>`;
+    if (e.location && e.location.length)
+        body += `<div class="dr-sec"><h5>发生地点</h5><div class="chips">${e.location.map(l =>
+            `<span class="chip" data-rel="${esc(l.name)}" data-kind="setting">${esc(l.name)}</span>`).join("")}</div></div>`;
+    if (e.participants && e.participants.length)
+        body += `<div class="dr-sec"><h5>参与人物</h5><div class="chips">${e.participants.map(p =>
+            `<span class="chip" data-rel="${esc(p.name)}" data-kind="character">${esc(p.name)}</span>`).join("")}</div></div>`;
+    if (e.cause && e.cause.length)
+        body += `<div class="dr-sec"><h5>前置事件</h5><div class="chips">${e.cause.map(x =>
+            `<span class="chip" data-rel="${esc(x.name)}" data-kind="event">${esc(x.name)}</span>`).join("")}</div></div>`;
+    if (e.effect && e.effect.length)
+        body += `<div class="dr-sec"><h5>后续影响</h5><div class="chips">${e.effect.map(x =>
+            `<span class="chip" data-rel="${esc(x.name)}" data-kind="event">${esc(x.name)}</span>`).join("")}</div></div>`;
+    body += `<div class="src-note">原始卡片：data/output/${esc(book)}/events/…/${esc(e.name)}.md</div>`;
+    $("#drawer").innerHTML = drawerHead("event", e.name, [e.time, e.chapter, e.importance]) + `<div class="dr-body">${body}</div>`;
+    wireDrawer(book);
+}
+function renderSettingDrawer(s, book) {
+    let body = `<div class="dr-sec"><h5>描述</h5><p>${esc(s.description || "（无描述）")}</p></div>`;
+    if (s.characters && s.characters.length)
+        body += `<div class="dr-sec"><h5>关联人物 · 点击跳转</h5><div class="chips">${s.characters.map(c =>
+            `<span class="chip" data-rel="${esc(c.name)}" data-kind="character">${esc(c.name)}</span>`).join("")}</div></div>`;
+    if (s.events && s.events.length)
+        body += `<div class="dr-sec"><h5>关联事件</h5><div class="chips">${s.events.map(e =>
+            `<span class="chip" data-rel="${esc(e.name)}" data-kind="event">${esc(e.name)}</span>`).join("")}</div></div>`;
+    body += `<div class="src-note">原始卡片：data/output/${esc(book)}/settings/…/${esc(s.name)}.md</div>`;
+    $("#drawer").innerHTML = drawerHead("setting", s.name, [s.setting_type]) + `<div class="dr-body">${body}</div>`;
+    wireDrawer(book);
+}
+function closeDrawer() {
+    $("#drawer").classList.remove("on"); $("#mask").classList.remove("on");
+}
+$("#mask").addEventListener("click", closeDrawer);
+document.addEventListener("keydown", e => {
+    if (e.key === "Escape") { closeDrawer(); $("#qpop").classList.remove("open"); }
+    const tag = (document.activeElement || {}).tagName;
+    if (e.key === "/" && tag !== "INPUT" && tag !== "TEXTAREA" && tag !== "SELECT") {
+        e.preventDefault(); $("#q").focus();
+    }
+});
+
+// ── 全局搜索（FTS5 跨作品） ────────────────────────────────
+const q = $("#q"), qpop = $("#qpop");
+let qTimer = null;
+q.addEventListener("input", () => {
+    clearTimeout(qTimer);
+    const k = q.value.trim();
+    if (!k) { qpop.classList.remove("open"); return; }
+    qTimer = setTimeout(async () => {
+        try {
+            const data = await api(`/api/search?q=${encodeURIComponent(k)}&limit=20`);
+            renderSearchPop(data.results, k);
+        } catch (err) {
+            qpop.innerHTML = `<div class="sp-empty">搜索失败：${esc(err.message)}</div>`;
+            qpop.classList.add("open");
+        }
+    }, 250);
+});
+function hl(s, k) { return k ? s.replaceAll(k, `<mark>${k}</mark>`) : s; }
+function renderSearchPop(results, k) {
+    const groups = [["character", "人物"], ["event", "事件"], ["setting", "设定"]];
+    qpop.innerHTML = results.length ? groups.map(([g, gname]) => {
+        const a = results.filter(x => x.kind === g);
+        if (!a.length) return "";
+        return `<div class="sp-group"><div class="sp-title">${gname}</div>${a.map(x =>
+            `<div class="sp-item" data-name="${esc(x.name)}" data-kind="${g}" data-book="${esc(x.book)}">
+            <b>${hl(esc(x.name), esc(k))}</b>
+            <span class="meta">${esc((x.summary || "").slice(0, 24))}</span>
+            <span class="meta" style="margin-left:auto">《${esc(x.book)}》</span></div>`).join("")}</div>`;
+    }).join("") : `<div class="sp-empty">没有找到「${esc(k)}」</div>`;
+    qpop.classList.add("open");
+    qpop.querySelectorAll(".sp-item").forEach(el =>
+        el.addEventListener("click", () => {
+            qpop.classList.remove("open");
+            openEntity(el.dataset.name, el.dataset.kind, el.dataset.book);
+        }));
+}
+document.addEventListener("click", e => {
+    if (!e.target.closest(".searchbox")) qpop.classList.remove("open");
+});
+
+// ── 上传 → 任务轮询 ────────────────────────────────────────
+const drop = $("#drop"), file = $("#file"), startbtn = $("#startbtn");
+let pickedFile = null;
+drop.addEventListener("click", () => file.click());
+["dragover", "dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => {
+    e.preventDefault(); drop.classList.toggle("over", ev === "dragover");
+    if (ev === "drop" && e.dataTransfer.files.length) pick(e.dataTransfer.files[0]);
+}));
+file.addEventListener("change", () => file.files[0] && pick(file.files[0]));
+function pick(f) { pickedFile = f; $("#picked").textContent = "已选择：" + f.name; startbtn.disabled = false; }
+startbtn.addEventListener("click", uploadAndAnalyze);
+
+const STAGE_NAMES = ["读取", "分章", "AI 分析", "生成卡片", "入库索引"];
+let pollingTimer = null, lastMsg = "";
+function stageOf(p) { return p < 10 ? 0 : p < 15 ? 1 : p < 85 ? 2 : p < 95 ? 3 : 4; }
+function setProgress(pct, msg) {
+    $("#pfill").style.width = pct + "%";
+    $("#pct").textContent = Math.floor(pct) + "%";
+    $("#pmsg").textContent = msg || "";
+}
+function log(m, c) {
+    const t = new Date().toTimeString().slice(0, 8);
+    const box = $("#logs");
+    box.innerHTML += `<div><span class="t">${t}</span><span class="${c || ""}">${esc(m)}</span></div>`;
+    box.scrollTop = 1e6;
+}
+async function uploadAndAnalyze() {
+    if (!pickedFile) return;
+    startbtn.disabled = true;
+    const title = $("#upload-title").value.trim();
+    show("task");
+    $("#tasktitle").textContent = `分析「${title || pickedFile.name.replace(/\.[^.]+$/, "")}」`;
+    $("#taskstate").textContent = "上传中";
+    $("#taskstate").className = "state";
+    $("#taskdone").classList.add("hidden");
+    $("#logs").innerHTML = ""; lastMsg = "";
+    $("#stages").innerHTML = STAGE_NAMES.map((s, i) =>
+        `<div class="stage" id="st${i}"><div class="dot">${i + 1}</div><s>${s}</s></div>`).join("");
+    setProgress(2, "上传文件中…");
+    try {
         const form = new FormData();
-        form.append("file", file);
-        const titleInput = document.getElementById("upload-title").value.trim();
-        if (titleInput) form.append("title", titleInput);
+        form.append("file", pickedFile);
+        if (title) form.append("title", title);
         const upRes = await fetch("/api/documents", { method: "POST", body: form });
         if (handleAuthError(upRes)) return;
         if (!upRes.ok) throw new Error((await upRes.json()).detail || "上传失败");
         const up = await upRes.json();
 
-        // 2. 启动后台分析
         const anRes = await fetch("/api/analyze", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -483,15 +997,15 @@ async function uploadAndAnalyze() {
         if (handleAuthError(anRes)) return;
         if (!anRes.ok) throw new Error((await anRes.json()).detail || "任务启动失败");
         const { task_id } = await anRes.json();
-
-        // 3. 轮询任务进度
         pollTask(task_id);
     } catch (err) {
-        setProgress(100, err.message, "failed");
-        uploadBtn.disabled = false;
+        $("#taskstate").textContent = "失败";
+        $("#taskstate").className = "state bad";
+        setProgress(100, err.message);
+        log(err.message, "err");
+        startbtn.disabled = false;
     }
 }
-
 function pollTask(taskId) {
     clearInterval(pollingTimer);
     pollingTimer = setInterval(async () => {
@@ -499,50 +1013,157 @@ function pollTask(taskId) {
             const res = await fetch(`/api/tasks/${taskId}`);
             if (!res.ok) throw new Error("任务查询失败");
             const t = await res.json();
-            const cls = t.status === "failed" ? "failed" : t.status === "done" ? "done" : "";
-            setProgress(t.progress || 0, `${t.message}${t.error ? "：" + t.error : ""}`, cls);
+            const st = stageOf(t.progress || 0);
+            STAGE_NAMES.forEach((_, i) => {
+                const el = $("#st" + i);
+                el.classList.toggle("done", i < st || t.status === "done");
+                el.classList.toggle("active", i === st && t.status !== "done");
+            });
+            setProgress(t.progress || 0, `${t.message || ""}${t.error ? "：" + t.error : ""}`);
+            if (t.message && t.message !== lastMsg) {
+                lastMsg = t.message;
+                log(t.message, t.status === "failed" ? "err" : t.message.includes("章") ? "hl" : "");
+            }
+            const stateEl = $("#taskstate");
+            stateEl.textContent = { pending: "排队中", running: "运行中", done: "已完成", failed: "失败" }[t.status] || t.status;
+            stateEl.className = "state" + (t.status === "failed" ? " bad" : t.status === "done" ? " good" : "");
             if (t.status === "done") {
                 clearInterval(pollingTimer);
-                uploadBtn.disabled = false;
-                // 刷新左侧数据，跳回概览
-                init();
-                setTimeout(() => switchView("overview"), 800);
+                log(`完成：《${t.title}》已入库`, "hl");
+                $("#taskdone").classList.remove("hidden");
+                $("#enterbook").textContent = `进入《${t.title}》知识库`;
+                $("#enterbook").onclick = async () => {
+                    delete cache[t.title];
+                    await loadWall();
+                    openBook(t.title);
+                };
+                toast("分析完成，新书已加入作品墙");
+                startbtn.disabled = false; pickedFile = null;
+                $("#picked").textContent = ""; $("#upload-title").value = "";
             } else if (t.status === "failed") {
                 clearInterval(pollingTimer);
-                uploadBtn.disabled = false;
+                startbtn.disabled = false;
             }
         } catch (err) {
             clearInterval(pollingTimer);
-            setProgress(100, err.message, "failed");
-            uploadBtn.disabled = false;
+            setProgress(100, err.message);
+            log(err.message, "err");
+            startbtn.disabled = false;
         }
     }, 1500);
 }
 
-function setProgress(pct, msg, cls) {
-    const box = document.getElementById("upload-progress");
-    box.style.display = "block";
-    box.className = "upload-progress " + (cls || "");
-    document.getElementById("upload-fill").style.width = pct + "%";
-    const status = document.getElementById("upload-status");
-    status.textContent = msg;
-    status.className = "upload-status" + (cls === "failed" ? " error" : "");
+// ── 设置页（LLM 连接配置） ─────────────────────────────────
+const PRESETS = {
+    mimo: {
+        base: "https://token-plan-cn.xiaomimimo.com", model: "mimo-v2.5",
+        hint: "国内可直连；到小米开放平台获取 Key",
+    },
+    deepseek: {
+        base: "https://api.deepseek.com", model: "deepseek-chat",
+        hint: "到 platform.deepseek.com 获取 Key",
+    },
+    custom: { base: "", model: "", hint: "任何 OpenAI 兼容接口（含 LM Studio、vLLM、中转站等）" },
+};
+let settingsLoaded = false;
+
+document.getElementById("settings-preset").addEventListener("change", e => {
+    const p = PRESETS[e.target.value];
+    if (!p) return;
+    document.getElementById("settings-base").value = p.base;
+    document.getElementById("settings-model").value = p.model;
+    document.getElementById("preset-hint").textContent = p.hint;
+});
+
+function setSettingsStatus(msg, ok) {
+    const el = document.getElementById("settings-status");
+    el.textContent = msg;
+    el.className = "settings-status" + (ok === true ? " ok" : ok === false ? " bad" : "");
 }
 
-// 401 → 跳登录页
-function handleAuthError(res) {
-    if (res.status === 401) {
-        window.location.href = "/login";
-        return true;
+async function loadSettings() {
+    try {
+        const res = await fetch("/api/settings");
+        if (handleAuthError(res)) return;
+        if (!res.ok) throw new Error("读取配置失败");
+        const s = await res.json();
+        document.getElementById("settings-base").value = s.base_url || "";
+        document.getElementById("settings-model").value = s.model || "";
+        document.getElementById("key-hint").textContent =
+            s.has_api_key ? `已保存 Key：${s.api_key_masked}` : "尚未配置 API Key";
+    } catch (err) {
+        setSettingsStatus(err.message, false);
     }
-    return false;
+}
+
+document.getElementById("settings-save").addEventListener("click", async () => {
+    const body = {
+        base_url: document.getElementById("settings-base").value.trim(),
+        api_key: document.getElementById("settings-key").value.trim(),
+        model: document.getElementById("settings-model").value.trim(),
+    };
+    try {
+        const res = await fetch("/api/settings", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+        });
+        if (handleAuthError(res)) return;
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "保存失败");
+        document.getElementById("settings-key").value = "";
+        document.getElementById("key-hint").textContent =
+            data.has_api_key ? `已保存 Key：${data.api_key_masked}` : "尚未配置 API Key";
+        setSettingsStatus("✅ 已保存并生效", true);
+        loadStatusbar();
+    } catch (err) {
+        setSettingsStatus(err.message, false);
+    }
+});
+
+document.getElementById("settings-test").addEventListener("click", async () => {
+    setSettingsStatus("正在测试连接…");
+    const body = {
+        base_url: document.getElementById("settings-base").value.trim(),
+        api_key: document.getElementById("settings-key").value.trim(),
+        model: document.getElementById("settings-model").value.trim(),
+    };
+    try {
+        const res = await fetch("/api/settings/test", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+        });
+        if (handleAuthError(res)) return;
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "测试失败");
+        const tail = data.latency_ms ? ` · ${data.latency_ms}ms` : "";
+        setSettingsStatus(`${data.ok ? "✅" : "❌"} ${data.message}${tail}`, data.ok);
+    } catch (err) {
+        setSettingsStatus(err.message, false);
+    }
+});
+
+// ── 状态条（真实数据，401 时静默跳过） ─────────────────────
+function updateStatusbarLib(books, entities) {
+    $("#sb-lib").innerHTML = `<i class="led ok"></i>知识库 · ${books} 部作品 · ${entities.toLocaleString()} 实体`;
+}
+async function loadStatusbar() {
+    try {
+        const res = await fetch("/api/settings");
+        if (!res.ok) return;
+        const s = await res.json();
+        $("#sb-api").innerHTML = `<i class="led ${s.has_api_key ? "ok" : "warn"}"></i>API ${s.has_api_key ? "已配置（" + esc(s.model || "") + "）" : "未配置 Key"}`;
+        $("#sb-auth").innerHTML = `<i class="led ok"></i>${s.auth_enabled ? "已启用访问密码" : "本机模式 · 未设密码"}`;
+    } catch (e) { /* 静默 */ }
 }
 
 // ── Boot ───────────────────────────────────────────────────
-init().catch(err => {
-    document.getElementById("overview-loading").innerHTML =
-        `<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">加载失败：${esc(err.message)}</div></div>`;
+loadWall().catch(err => {
+    $("#walln").textContent = "";
+    $("#books").innerHTML = `<div class="wall-empty">加载失败：${esc(err.message)}</div>`;
 });
+loadStatusbar();
 </script>
 
 </body>

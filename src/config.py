@@ -36,6 +36,116 @@ DEEPSEEK_API_KEY = os.environ.get("STORY_WIKI_API_KEY", "")
 DEEPSEEK_BASE_URL = os.environ.get("STORY_WIKI_BASE_URL", "https://api.deepseek.com")
 DEEPSEEK_MODEL = os.environ.get("STORY_WIKI_MODEL", "deepseek-chat")
 
+# ── LLM 连接配置读写（供 Web 设置页使用）──────────────────────
+# 三个字段与 .env 中键名的映射
+_LLM_ENV_MAP = {
+    "api_key": "STORY_WIKI_API_KEY",
+    "base_url": "STORY_WIKI_BASE_URL",
+    "model": "STORY_WIKI_MODEL",
+}
+_LLM_DEFAULTS = {"base_url": "https://api.deepseek.com", "model": "deepseek-chat"}
+# 这些模块 `from config import DEEPSEEK_*` 拿到的是绑定副本，保存后需要同步热更新
+_LLM_CONSUMER_MODULES = (
+    "src.analyzer", "src.api_client", "src.plot_generator", "src.chapter_generator",
+    "analyzer", "api_client", "plot_generator", "chapter_generator",
+)
+
+
+def get_llm_config() -> dict:
+    """读取当前 LLM 连接配置（os.environ 为准，保证与热更新一致）。"""
+    return {
+        "api_key": os.environ.get("STORY_WIKI_API_KEY", ""),
+        "base_url": os.environ.get("STORY_WIKI_BASE_URL", _LLM_DEFAULTS["base_url"]),
+        "model": os.environ.get("STORY_WIKI_MODEL", _LLM_DEFAULTS["model"]),
+    }
+
+
+def mask_key(key: str) -> str:
+    """API Key 打码：保留前 3 后 4，中间以 *** 代替。"""
+    if not key:
+        return ""
+    if len(key) <= 8:
+        return "***"
+    return f"{key[:3]}***{key[-4:]}"
+
+
+def set_llm_config(
+    api_key: str | None = None,
+    base_url: str | None = None,
+    model: str | None = None,
+    env_path: Path | None = None,
+) -> dict:
+    """更新 LLM 配置：os.environ + 本模块常量 + 已加载消费模块的绑定。
+
+    传 None / 空串 表示该字段保持原值（便于"只改模型不动 Key"）。
+    持久化必须显式传入 env_path（仅 Web 设置层传项目 .env），
+    其他调用方（含测试）不传即只改运行时，绝不落盘。
+    """
+    incoming = {"api_key": api_key, "base_url": base_url, "model": model}
+    applied: dict[str, str] = {}
+    for field, env_key in _LLM_ENV_MAP.items():
+        val = (incoming.get(field) or "").strip()
+        if val:
+            os.environ[env_key] = val
+            applied[env_key] = val
+
+    # 同步本模块常量（cli 侧 config.DEEPSEEK_* 的直接引用者）
+    globals()["DEEPSEEK_API_KEY"] = os.environ.get("STORY_WIKI_API_KEY", "")
+    globals()["DEEPSEEK_BASE_URL"] = os.environ.get(
+        "STORY_WIKI_BASE_URL", _LLM_DEFAULTS["base_url"]
+    )
+    globals()["DEEPSEEK_MODEL"] = os.environ.get(
+        "STORY_WIKI_MODEL", _LLM_DEFAULTS["model"]
+    )
+    _rebind_llm_consumers()
+
+    if applied and env_path is not None:
+        _write_env_keys(applied, Path(env_path))
+    return get_llm_config()
+
+
+def _rebind_llm_consumers() -> None:
+    """把新配置同步给已加载的 `from config import DEEPSEEK_*` 模块。"""
+    import sys
+
+    pairs = (
+        ("DEEPSEEK_API_KEY", globals()["DEEPSEEK_API_KEY"]),
+        ("DEEPSEEK_BASE_URL", globals()["DEEPSEEK_BASE_URL"]),
+        ("DEEPSEEK_MODEL", globals()["DEEPSEEK_MODEL"]),
+    )
+    for modname in _LLM_CONSUMER_MODULES:
+        mod = sys.modules.get(modname)
+        if mod is None:
+            continue
+        for attr, val in pairs:
+            if hasattr(mod, attr):
+                setattr(mod, attr, val)
+
+
+def _write_env_keys(updates: dict[str, str], env_path: Path) -> None:
+    """更新 .env 中 KEY=value 行（保留其余内容与注释），键不存在则追加。"""
+    lines: list[str] = []
+    if env_path.exists():
+        lines = env_path.read_text(encoding="utf-8").splitlines()
+
+    out: list[str] = []
+    seen: set[str] = set()
+    for line in lines:
+        stripped = line.strip()
+        key = None
+        if "=" in stripped and not stripped.startswith("#"):
+            key = stripped.split("=", 1)[0].strip()
+        if key in updates:
+            out.append(f"{key}={updates[key]}")
+            seen.add(key)
+        else:
+            out.append(line)
+    for env_key, val in updates.items():
+        if env_key not in seen:
+            out.append(f"{env_key}={val}")
+
+    env_path.write_text("\n".join(out) + "\n", encoding="utf-8")
+
 # ── 路径配置 ──
 VAULT_DIR = Path(os.environ.get("STORY_WIKI_VAULT", str(PROJECT_ROOT / "vault")))
 DATA_DIR = PROJECT_ROOT / "data"

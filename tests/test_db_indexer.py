@@ -219,6 +219,15 @@ class TestFtsSearch:
         assert results and results[0]["name"] == "孙少安"
         conn.close()
 
+    def test_substring_fallback(self, tmp_path):
+        """unicode61 不拆中文字：「少安」FTS 零命中 → LIKE 兜底仍能召回。"""
+        conn = self._seed(tmp_path)
+        results = search_entities(conn, "少安")
+        assert any(r["name"] == "孙少安" for r in results)
+        # kind 过滤在兜底路径同样生效：事件名不含「少安」→ 空
+        assert search_entities(conn, "少安", kind="event") == []
+        conn.close()
+
 
 # ── indexer.py ───────────────────────────────────────────────
 

@@ -902,6 +902,9 @@ FastAPI 应用：`web/app.py`，启动 `uvicorn web.app:app --port 8000`。
 | POST | `/api/documents` | multipart：`file`（txt/md/epub/pdf/docx，≤100MB）+ 可选 `title` | 上传文档到 `data/input/`，返回 `{filename, size, title, path}`；同名自动加时间戳 |
 | POST | `/api/analyze` | JSON：`{"filename", "title?", "incremental?"}` | 启动后台分析，立即返回 `{task_id, status}` |
 | GET | `/api/tasks/{task_id}` | — | 查询任务：`{status: pending/running/done/failed, progress: 0-100, message, error}` |
+| GET | `/api/settings` | — | 读取 LLM 连接配置（Key 打码为 `sk-***xxxx`） |
+| POST | `/api/settings` | JSON：`{"api_key?", "base_url?", "model?"}` | 保存配置并写回 .env，热生效无需重启；`api_key` 留空沿用原值 |
+| POST | `/api/settings/test` | JSON：`{"api_key?", "base_url?", "model?"}` | 用（可未保存的）配置发一次 `max_tokens=1` 的最小补全，验证连通性，返回 `{ok, message, latency_ms}` |
 
 ### 鉴权接口
 
@@ -932,6 +935,12 @@ curl http://127.0.0.1:8000/api/tasks/a1b2c3d4e5f6
 
 # 全文检索
 curl "http://127.0.0.1:8000/api/search?q=孙少安&kind=character"
+
+# 测试 LLM 连接（先测再存；字段留空回退到已保存配置）
+curl -X POST http://127.0.0.1:8000/api/settings/test \
+     -H "Content-Type: application/json" \
+     -d '{"base_url":"https://api.deepseek.com","api_key":"sk-xxx","model":"deepseek-chat"}'
+# → {"ok":true,"message":"连接成功（deepseek-chat）","latency_ms":812}
 ```
 
 ---
