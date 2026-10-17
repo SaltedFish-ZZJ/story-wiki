@@ -282,6 +282,7 @@ class TestBatchExport:
 
     def test_batch_export_all(self):
         """测试导出所有格式。"""
+        pytest.importorskip("ebooklib")
         print("测试导出所有格式...")
         converter, tmpdir = _make_converter()
         try:
@@ -432,6 +433,7 @@ class TestRunInterface:
 
     def test_run_to_epub_with_cover(self):
         """测试 run 方法带封面 EPUB 转换。"""
+        pytest.importorskip("ebooklib")
         print("测试 run 带封面 EPUB 转换...")
         converter, tmpdir = _make_converter()
         try:
@@ -488,6 +490,7 @@ class TestRunInterface:
 
     def test_run_batch_export(self):
         """测试 run 方法批量导出。"""
+        pytest.importorskip("ebooklib")
         print("测试 run 批量导出...")
         converter, tmpdir = _make_converter()
         try:

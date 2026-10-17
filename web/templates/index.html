@@ -17,6 +17,7 @@
         <a class="nav-link" data-view="characters">人物</a>
         <a class="nav-link" data-view="graph">关系图</a>
         <a class="nav-link" data-view="timeline">时间线</a>
+        <a class="nav-link" data-view="upload">上传分析</a>
     </div>
 </nav>
 
@@ -72,6 +73,30 @@
             <div class="spinner"></div>加载中...
         </div>
         <div id="tl-content" class="hidden"></div>
+    </section>
+
+    <!-- 上传分析页 -->
+    <section id="view-upload" class="view hidden">
+        <div class="page-header">
+            <h1 class="page-title">上传并分析</h1>
+            <p class="page-subtitle">上传 txt / md / epub / pdf / docx 文档，AI 自动提取人物、事件、设定并生成 Obsidian 卡片</p>
+        </div>
+        <div class="upload-panel">
+            <label class="upload-drop" id="upload-drop">
+                <input type="file" id="upload-file" accept=".txt,.md,.epub,.pdf,.docx">
+                <div class="upload-drop-icon">📄</div>
+                <div>点击选择文件，或拖拽到此处</div>
+                <div class="upload-filename" id="upload-filename"></div>
+            </label>
+            <div class="upload-row">
+                <input class="upload-input" id="upload-title" type="text" placeholder="作品名（可选，默认取文件名）">
+                <button class="upload-btn" id="upload-btn" disabled>开始分析</button>
+            </div>
+            <div class="upload-progress" id="upload-progress">
+                <div class="upload-progress-bar"><div class="upload-progress-fill" id="upload-fill"></div></div>
+                <div class="upload-status" id="upload-status"></div>
+            </div>
+        </div>
     </section>
 
 </main>
@@ -405,6 +430,112 @@ function closeDrawer() {
 function esc(str) {
     if (!str) return "";
     return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+// ── Upload & Analyze (P1) ─────────────────────────────────
+const uploadFileInput = document.getElementById("upload-file");
+const uploadBtn = document.getElementById("upload-btn");
+const uploadDrop = document.getElementById("upload-drop");
+let pollingTimer = null;
+
+uploadFileInput.addEventListener("change", () => {
+    const f = uploadFileInput.files[0];
+    document.getElementById("upload-filename").textContent = f ? f.name : "";
+    uploadBtn.disabled = !f;
+});
+
+// 拖拽支持
+["dragover", "dragleave", "drop"].forEach(ev => {
+    uploadDrop.addEventListener(ev, e => {
+        e.preventDefault();
+        uploadDrop.classList.toggle("dragover", ev === "dragover");
+        if (ev === "drop" && e.dataTransfer.files.length) {
+            uploadFileInput.files = e.dataTransfer.files;
+            uploadFileInput.dispatchEvent(new Event("change"));
+        }
+    });
+});
+
+uploadBtn.addEventListener("click", uploadAndAnalyze);
+
+async function uploadAndAnalyze() {
+    const file = uploadFileInput.files[0];
+    if (!file) return;
+    uploadBtn.disabled = true;
+    setProgress(3, "上传中...", "");
+    try {
+        // 1. 上传文件
+        const form = new FormData();
+        form.append("file", file);
+        const titleInput = document.getElementById("upload-title").value.trim();
+        if (titleInput) form.append("title", titleInput);
+        const upRes = await fetch("/api/documents", { method: "POST", body: form });
+        if (handleAuthError(upRes)) return;
+        if (!upRes.ok) throw new Error((await upRes.json()).detail || "上传失败");
+        const up = await upRes.json();
+
+        // 2. 启动后台分析
+        const anRes = await fetch("/api/analyze", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ filename: up.filename, title: up.title }),
+        });
+        if (handleAuthError(anRes)) return;
+        if (!anRes.ok) throw new Error((await anRes.json()).detail || "任务启动失败");
+        const { task_id } = await anRes.json();
+
+        // 3. 轮询任务进度
+        pollTask(task_id);
+    } catch (err) {
+        setProgress(100, err.message, "failed");
+        uploadBtn.disabled = false;
+    }
+}
+
+function pollTask(taskId) {
+    clearInterval(pollingTimer);
+    pollingTimer = setInterval(async () => {
+        try {
+            const res = await fetch(`/api/tasks/${taskId}`);
+            if (!res.ok) throw new Error("任务查询失败");
+            const t = await res.json();
+            const cls = t.status === "failed" ? "failed" : t.status === "done" ? "done" : "";
+            setProgress(t.progress || 0, `${t.message}${t.error ? "：" + t.error : ""}`, cls);
+            if (t.status === "done") {
+                clearInterval(pollingTimer);
+                uploadBtn.disabled = false;
+                // 刷新左侧数据，跳回概览
+                init();
+                setTimeout(() => switchView("overview"), 800);
+            } else if (t.status === "failed") {
+                clearInterval(pollingTimer);
+                uploadBtn.disabled = false;
+            }
+        } catch (err) {
+            clearInterval(pollingTimer);
+            setProgress(100, err.message, "failed");
+            uploadBtn.disabled = false;
+        }
+    }, 1500);
+}
+
+function setProgress(pct, msg, cls) {
+    const box = document.getElementById("upload-progress");
+    box.style.display = "block";
+    box.className = "upload-progress " + (cls || "");
+    document.getElementById("upload-fill").style.width = pct + "%";
+    const status = document.getElementById("upload-status");
+    status.textContent = msg;
+    status.className = "upload-status" + (cls === "failed" ? " error" : "");
+}
+
+// 401 → 跳登录页
+function handleAuthError(res) {
+    if (res.status === 401) {
+        window.location.href = "/login";
+        return true;
+    }
+    return false;
 }
 
 // ── Boot ───────────────────────────────────────────────────

@@ -878,4 +878,62 @@ main.py/agent.py → 调用分析或创作流程
 
 ---
 
-**注意**：本文档基于v0.7.0版本，后续版本可能会有更新。
+## 16. Web API 接口（v0.13.0）
+
+FastAPI 应用：`web/app.py`，启动 `uvicorn web.app:app --port 8000`。
+交互式文档：`http://127.0.0.1:8000/docs`。
+
+### 只读接口（公开）
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/books` | 作品列表 |
+| GET | `/api/books/{title}/overview` | 作品概览（统计+核心人物+简介） |
+| GET | `/api/books/{title}/characters` | 人物分组列表（支持 `?q=` 搜索） |
+| GET | `/api/books/{title}/characters/{name}` | 人物详情（关系/事件/语录） |
+| GET | `/api/books/{title}/graph` | 关系图谱数据（`?center=` 中心人物） |
+| GET | `/api/books/{title}/timeline` | 事件时间线（`?importance=` `?character=`） |
+| GET | `/api/search` | **跨作品全文检索**：`?q=关键词&kind=character|event|setting&limit=20`，走 SQLite FTS5 |
+
+### 写接口（需登录，见下方鉴权）
+
+| 方法 | 路径 | 请求体 | 说明 |
+|------|------|--------|------|
+| POST | `/api/documents` | multipart：`file`（txt/md/epub/pdf/docx，≤100MB）+ 可选 `title` | 上传文档到 `data/input/`，返回 `{filename, size, title, path}`；同名自动加时间戳 |
+| POST | `/api/analyze` | JSON：`{"filename", "title?", "incremental?"}` | 启动后台分析，立即返回 `{task_id, status}` |
+| GET | `/api/tasks/{task_id}` | — | 查询任务：`{status: pending/running/done/failed, progress: 0-100, message, error}` |
+
+### 鉴权接口
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/login` | 登录页（未设密码时 307 跳首页） |
+| POST | `/login` | 表单 `password` → 303 跳首页并种 `sw_session` cookie |
+| POST | `/logout` | 清除会话 |
+
+**鉴权规则**：环境变量 `STORY_WIKI_PASSWORD` 设置后启用；未设置时全部开放（本机模式）。
+会话为 HMAC-SHA256 签名 cookie（httpOnly、7 天），只保护 POST 写接口，GET 保持公开。
+
+### Web API 示例
+
+```bash
+# 上传并分析一本书（curl）
+curl -F "file=@book.docx" http://127.0.0.1:8000/api/documents
+# → {"filename":"book.docx","title":"book",...}
+
+curl -X POST http://127.0.0.1:8000/api/analyze \
+     -H "Content-Type: application/json" \
+     -d '{"filename":"book.docx","title":"我的书"}'
+# → {"task_id":"a1b2c3d4e5f6","status":"pending"}
+
+# 轮询进度
+curl http://127.0.0.1:8000/api/tasks/a1b2c3d4e5f6
+# → {"status":"running","progress":45,"message":"分析第 12 章：...","error":null}
+
+# 全文检索
+curl "http://127.0.0.1:8000/api/search?q=孙少安&kind=character"
+```
+
+---
+
+**注意**：本文档基于v0.7.0版本（16 节 Web API 基于 v0.13.0），后续版本可能会有更新。

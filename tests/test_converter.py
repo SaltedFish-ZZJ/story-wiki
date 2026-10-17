@@ -9,6 +9,8 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch, mock_open
 
+import pytest
+
 from src.converter import Converter, get_converter, convert_novel, SUPPORTED_PLATFORMS, PLATFORM_RULES
 
 
@@ -306,6 +308,7 @@ def test_convert_to_epub_metadata():
 
 def test_convert_to_all():
     """测试全格式导出。"""
+    pytest.importorskip("ebooklib")
     print("测试全格式导出...")
     converter, tmpdir = _make_converter()
 
@@ -331,6 +334,7 @@ def test_convert_to_all():
 
 def test_convert_to_all_custom_dir():
     """测试自定义输出目录。"""
+    pytest.importorskip("ebooklib")
     print("测试自定义输出目录...")
     converter, tmpdir = _make_converter()
 
@@ -373,6 +377,7 @@ def test_run_to_platform():
 
 def test_run_to_epub():
     """测试 run 方法 EPUB 转换。"""
+    pytest.importorskip("ebooklib")
     print("测试 run EPUB 转换...")
     converter, tmpdir = _make_converter()
 
@@ -416,6 +421,7 @@ def test_run_to_txt():
 
 def test_run_to_all():
     """测试 run 方法全格式导出。"""
+    pytest.importorskip("ebooklib")
     print("测试 run 全格式导出...")
     converter, tmpdir = _make_converter()
 

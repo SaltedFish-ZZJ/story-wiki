@@ -1,0 +1,29 @@
+# 版本控制与本地环境
+.git
+.gitignore
+.env
+
+# 数据与产物（通过挂载卷提供，不打入镜像）
+data/
+vault/
+story/
+
+# 测试与缓存
+tests/
+.pytest_cache/
+__pycache__/
+*.pyc
+.ruff_cache/
+.coverage
+htmlcov/
+
+# 工具与文档草稿
+.idea/
+.vscode/
+*.code-workspace
+CLAUDE.md
+GEMINI.md
+mcp-config.json
+agent_prompts/
+playwright-report/
+test-results/

@@ -1,7 +1,7 @@
 """
 Story Wiki - 文本提取模块
 负责读取各种格式的输入文件，返回纯文本字符串。
-支持格式：.txt, .epub, .pdf
+支持格式：.txt, .md, .epub, .pdf, .docx（docx 需安装 python-docx）
 
 优化：支持大文件流式读取，减少内存占用。
 """
@@ -36,8 +36,10 @@ def extract_text(file_path: str, use_streaming: bool = None) -> str:
     ext = path.suffix.lower()
     readers = {
         ".txt": _read_txt,
+        ".md": _read_txt,
         ".epub": _read_epub,
         ".pdf": _read_pdf,
+        ".docx": _read_docx,
     }
 
     reader = readers.get(ext)
@@ -91,6 +93,31 @@ def _read_txt_normal(path: Path, encoding: str) -> str:
     with open(path, 'r', encoding=encoding) as f:
         text = f.read()
     return _clean_text(text)
+
+
+def _read_docx(path: Path, use_streaming: bool = False) -> str:
+    """
+    读取 docx 文件（python-docx），提取段落与表格文本。
+
+    python-docx 为可选依赖（pip install story-wiki[office]），
+    未安装时抛出带安装指引的 ImportError。
+    """
+    try:
+        import docx  # python-docx
+    except ImportError as exc:
+        raise ImportError(
+            "读取 docx 需要 python-docx 库，请运行: pip install \"story-wiki[office]\""
+        ) from exc
+
+    document = docx.Document(str(path))
+    parts = [p.text for p in document.paragraphs if p.text.strip()]
+    # 表格按行拼接（合同/报告类文档的正文常在表格里）
+    for table in document.tables:
+        for row in table.rows:
+            cells = [c.text.strip() for c in row.cells if c.text.strip()]
+            if cells:
+                parts.append(" | ".join(cells))
+    return _clean_text("\n".join(parts))
 
 
 def _read_txt_streaming(path: Path, encoding: str) -> str:

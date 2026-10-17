@@ -656,3 +656,92 @@ body {
         width: 100%;
     }
 }
+
+/* ── Upload View (P1) ─────────────────────────────────────── */
+
+.upload-panel {
+    background: var(--bg-card, #fff);
+    border: 1px solid var(--border, #e5e5ea);
+    border-radius: 16px;
+    padding: 28px;
+    max-width: 640px;
+}
+
+.upload-drop {
+    border: 2px dashed var(--border, #c7c7cc);
+    border-radius: 12px;
+    padding: 32px 16px;
+    text-align: center;
+    color: var(--text-secondary, #8e8e93);
+    cursor: pointer;
+    transition: border-color .2s, background .2s;
+}
+
+.upload-drop:hover,
+.upload-drop.dragover {
+    border-color: var(--accent, #007aff);
+    background: rgba(0, 122, 255, .04);
+}
+
+.upload-drop input[type="file"] { display: none; }
+.upload-drop-icon { font-size: 32px; margin-bottom: 8px; }
+.upload-filename { margin-top: 10px; font-weight: 600; color: var(--text, #1d1d1f); }
+
+.upload-row {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+    align-items: center;
+}
+
+.upload-input {
+    flex: 1;
+    padding: 10px 12px;
+    border: 1px solid var(--border, #d1d1d6);
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+.upload-btn {
+    padding: 10px 22px;
+    border: none;
+    border-radius: 8px;
+    background: var(--accent, #007aff);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.upload-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+.upload-progress {
+    margin-top: 18px;
+    display: none;
+}
+
+.upload-progress-bar {
+    height: 8px;
+    border-radius: 4px;
+    background: var(--border, #e5e5ea);
+    overflow: hidden;
+}
+
+.upload-progress-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 4px;
+    background: var(--accent, #007aff);
+    transition: width .4s ease;
+}
+
+.upload-progress.failed .upload-progress-fill { background: var(--red, #ff3b30); }
+.upload-progress.done .upload-progress-fill { background: var(--green, #34c759); }
+
+.upload-status {
+    margin-top: 8px;
+    font-size: 13px;
+    color: var(--text-secondary, #8e8e93);
+}
+
+.upload-status.error { color: var(--red, #ff3b30); }

@@ -1,6 +1,6 @@
 [project]
 name = "story-wiki"
-version = "0.12.1"
+version = "0.13.0"
 description = "AI 驱动的故事知识库系统"
 requires-python = ">=3.13"
 dependencies = [
@@ -12,6 +12,9 @@ dependencies = [
 formats = [
     "ebooklib>=0.19",
     "pymupdf>=1.25",
+]
+office = [
+    "python-docx>=1.1",
 ]
 web = [
     "fastapi>=0.115",

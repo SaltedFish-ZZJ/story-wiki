@@ -1,0 +1,21 @@
+# Story Wiki 生产编排
+# 启动：docker compose up -d
+# 停止：docker compose down
+services:
+  story-wiki:
+    build: .
+    container_name: story-wiki
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      # 访问密码（设置后上传/分析需登录；不设置则本机开放）
+      STORY_WIKI_PASSWORD: ${STORY_WIKI_PASSWORD:-}
+      # 会话签名密钥（多实例或重启保会话时建议显式设置）
+      STORY_WIKI_SECRET: ${STORY_WIKI_SECRET:-}
+    volumes:
+      # 输入文本 / 分析产物 / SQLite 元数据库全部落在宿主机 data/ 目录
+      - ./data:/app/data
+      - ./vault:/app/vault
+    restart: unless-stopped

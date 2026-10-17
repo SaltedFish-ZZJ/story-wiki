@@ -1,5 +1,43 @@
 # Changelog
 
+## v0.13.0 (2026-10-17)
+
+### 功能 — SQLite 元数据层 + Web 上传分析 + 最小鉴权 + 部署产物
+
+**P0 — SQLite 元数据层与全文检索：**
+- 新增 `src/db.py`：document / entity / relation / event_time 四表 + FTS5 外部内容表（unicode61 分词），触发器同步，标准库 sqlite3 实现，WAL 模式
+- 新增 `src/indexer.py`：扫描 vault md 卡片幂等入库（md_path 唯一键），两遍法解析人物关系 wikilink，事件按 章号*1000+序号 排序；CLI 支持 `--rebuild` / `--stats`
+- 新增 `GET /api/search`：跨作品全文检索（人物/事件/设定过滤），中文短语查询防拆字误召回
+- `generator.py`：`generate_vault` / `generate_vault_incremental` 生成结束后自动增量入库（失败仅告警，不影响生成）
+- 实测：《平凡的世界》1,253 实体 + 关系/事件时间全部入库；重复执行幂等
+
+**P0.5 — 可选依赖测试修正：**
+- 17 个 EPUB 相关测试改用 `pytest.importorskip("ebooklib")`（原先裸装环境 fail，现 skip）
+- 裸装 `.[test]` 环境：589 passed / 18 skipped / 0 failed
+
+**P1 — Web 上传与后台分析：**
+- 新增 `POST /api/documents`：上传 txt/md/epub/pdf/docx（100MB 上限，同名不覆盖），docx 用 python-docx 解析段落+表格（新增 `office` extra）
+- 新增 `POST /api/analyze` + `GET /api/tasks/{id}`：threading 单并发后台任务，进度分档（提取 10% / 章节 15-85% / 生成 90%），失败回滚不留半成品
+- `extractor.py`：新增 `.md` / `.docx` 格式支持
+- 前端新增"上传分析"页：拖拽上传 + 进度条轮询 + 完成自动刷新
+
+**P2 — 最小权限：**
+- 新增 `web/auth.py`：STORY_WIKI_PASSWORD 环境变量单用户密码，HMAC-SHA256 签名 session cookie（httpOnly，7 天），未设密码则鉴权关闭
+- `POST /api/documents`、`POST /api/analyze` 挂鉴权依赖；GET 接口保持公开；新增 `/login` / `/logout` 登录页
+
+**P3 — 部署产物：**
+- 新增 `Dockerfile`（python:3.13-slim，非 root，HEALTHCHECK）+ `.dockerignore` + `docker-compose.yml`（data/vault 挂载卷持久化）
+- 新增 `start.bat` / `start.sh` 一键启动脚本
+- 新增 `docs/07_部署/部署指南.md`（脚本/Compose/手动三种方式 + Nginx 示例 + 运维 FAQ）
+
+**P4 — 文档：**
+- README 补充 Web 功能说明、技术架构、部署入口
+- API 参考手册新增 Web API 章节（全部 12 个接口）
+
+**新增测试：** 44 个（test_db_indexer 18 / test_web_upload 14 / test_web_auth 12）
+
+**测试结果：** 633 passed, 0 failed
+
 ## v0.12.1 (2026-06-25)
 
 ### 实战验证 — 平凡的世界全量分析

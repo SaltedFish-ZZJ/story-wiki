@@ -21,28 +21,69 @@ Story Wiki 把长文本拆解成可查询、可续写的结构化知识库。
 
 - **分析**：从小说/历史/传记中提取人物、关系、设定标签，生成 Obsidian 笔记
 - **可视化**：Obsidian Graph View 查看人物关系网络（节点颜色区分角色）
+- **Web 一体化**：浏览器上传 txt/md/epub/pdf/docx → 后台异步分析 → 进度条轮询，全程免命令行
+- **全文检索**：SQLite FTS5 跨作品检索人物/事件/设定，生成新书自动入库
+- **权限控制**：环境变量单用户密码 + HMAC 签名会话（可选，不设置即开放）
 - **角色成长曲线**：追踪人物状态变化，生成成长事件、阶段分析与趋势报告
 - **创作**：基于知识库驱动 AI 续写新章节（情节生成 + 章节生成 + 日志记录）
 - **增量分析**：跳过已处理章节，支持追加新内容，不必每次从头跑
 - **多格式导出**：EPUB / TXT / 平台格式，支持批量转换
 
+## 技术架构
+
+```
+输入(txt/md/epub/pdf/docx)
+  → extractor 文本提取          src/extractor.py
+  → splitter 重叠窗口分章       src/splitter.py（200字重叠 + 前文摘要传递）
+  → pipeline 逐章 AI 分析       src/pipeline.py（跨块实体对齐 + 缓存）
+  → generator 生成 md 卡片      src/generator.py（人物/事件/设定/索引/时间线）
+  → indexer 自动入库            src/indexer.py → data/wiki.db (SQLite+FTS5)
+
+Web 层（FastAPI）               web/app.py
+  ├─ 只读 API：作品/人物/关系图/时间线（直接读 md 卡片）
+  ├─ 检索 API：GET /api/search（FTS5）
+  ├─ 写 API：上传/任务（POST，受 STORY_WIKI_PASSWORD 鉴权）
+  └─ 后台任务：threading 单并发队列   web/tasks.py
+```
+
+依赖极简：核心只用 `psutil` + `requests` + 标准库（sqlite3/hashlib/hmac/threading）；
+可选 extra：`formats`（epub/pdf）、`office`（docx）、`web`（FastAPI）。
+
 ## 规模
 
 | 项 | 数量 |
 |---|---|
-| Python 模块 | 32 个（含 6 个 CLI 子命令模块） |
-| 代码行数 | 源码 13,165 行 + 测试 10,541 行 |
-| 单元测试 | 589 个（pytest，全部通过） |
-| 实测文本 | 80 万字长篇小说（约 80 万非空白字符） |
+| Python 模块 | 34 个（含 6 个 CLI 子命令模块） |
+| 代码行数 | 源码 14,000+ 行 + 测试 11,000+ 行 |
+| 单元测试 | 633 个（pytest，全部通过） |
+| 实测文本 | 80 万字长篇小说（平凡的世界全三部，1,253 实体入库） |
 | 模型接入 | 任意 OpenAI 兼容接口（默认小米 MiMo，可换 DeepSeek） |
-| Web 界面 | Flask 前端，1,691 行 |
+| Web 界面 | FastAPI + 原生 JS，12 个 API 接口 |
+| 元数据层 | SQLite + FTS5（document/entity/relation/event_time） |
 
 
 ## 快速开始
 
+```powershell
+# Windows 一键启动（自动建 venv / 装依赖 / 建索引 / 起服务）
+.\start.bat
+# 浏览器打开 http://127.0.0.1:8000，"上传分析"页拖入文档即可
+```
+
+```bash
+# Linux / macOS
+./start.sh
+
+# 或 Docker Compose（服务器部署）
+cp .env.example .env   # 填入 API Key
+docker compose up -d --build
+```
+
+命令行方式（分析功能）：
+
 ```bash
 # 1. 安装项目与常用格式支持
-python -m pip install -e ".[formats]"
+python -m pip install -e ".[formats,office]"
 
 # 2. 配置 API（复制 .env.example 为 .env 并填入配置）
 Copy-Item .env.example .env
@@ -62,14 +103,19 @@ python src/agent.py
 ### 可选安装
 
 ```bash
-# Web UI
+# Web UI（上传/检索/鉴权）
 python -m pip install -e ".[web]"
 
+# docx 支持
+python -m pip install -e ".[office]"
+
 # 开发与测试（包含全部可选能力）
-python -m pip install -e ".[formats,web,test]"
+python -m pip install -e ".[formats,office,web,test]"
 ```
 
 安装完成后可用 `story-wiki --help` 或 `python src/main.py --help` 检查 CLI。
+
+完整部署（Nginx/环境变量/运维 FAQ）见 [docs/07_部署/部署指南.md](docs/07_部署/部署指南.md)。
 
 ## 高级功能
 
@@ -239,13 +285,17 @@ python src/main.py --batch-export --title "红楼梦"
 
 ```
 story_wiki/
-├── src/           ← 源代码
+├── src/           ← 源代码（分析管线 + db.py 元数据层 + indexer.py 索引器）
+├── web/           ← FastAPI 后端 + 前端（app.py / tasks.py / auth.py / templates）
 ├── vault/         ← Obsidian vault 输出
 ├── data/          ← 输入文本和中间数据
-│   ├── input/     ← 待分析文本放这里
+│   ├── input/     ← 待分析文本放这里（Web 上传也落在这里）
+│   ├── output/    ← Web 界面读取的分析产物
+│   ├── wiki.db    ← SQLite 元数据库（FTS5 全文索引）
 │   └── state/     ← 分析状态和缓存
 │       └── cache/ ← 分析结果缓存
 ├── story/         ← 原始文本文件（红楼梦、水浒传等）
+├── Dockerfile / docker-compose.yml / start.bat / start.sh
 └── docs/          ← 项目文档
 ```
 

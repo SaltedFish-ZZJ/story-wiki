@@ -122,6 +122,7 @@ class TestEpubExportIntegration:
         self, converter, sample_novel_content, sample_metadata, tmp_path
     ):
         """测试EPUB导出完整流程。"""
+        pytest.importorskip("ebooklib")
         # 转换为EPUB
         epub_path = converter.convert_to_epub(sample_novel_content, sample_metadata)
 
@@ -137,78 +138,71 @@ class TestEpubExportIntegration:
         self, converter, sample_novel_content, sample_metadata, tmp_path
     ):
         """测试EPUB元数据正确性。"""
+        pytest.importorskip("ebooklib")
         epub_path = converter.convert_to_epub(sample_novel_content, sample_metadata)
 
         # 验证文件存在且可读
         assert Path(epub_path).exists()
 
         # 使用ebooklib验证元数据
-        try:
-            from ebooklib import epub
-            book = epub.read_epub(epub_path)
+        from ebooklib import epub
+        book = epub.read_epub(epub_path)
 
-            # 检查标题
-            title = book.get_metadata("DC", "title")
-            assert len(title) > 0
-            assert title[0][0] == sample_metadata["title"]
+        # 检查标题
+        title = book.get_metadata("DC", "title")
+        assert len(title) > 0
+        assert title[0][0] == sample_metadata["title"]
 
-            # 检查作者
-            author = book.get_metadata("DC", "creator")
-            assert len(author) > 0
-        except ImportError:
-            # ebooklib 未安装时跳过
-            pytest.skip("ebooklib 未安装，跳过元数据验证")
+        # 检查作者
+        author = book.get_metadata("DC", "creator")
+        assert len(author) > 0
 
     def test_epub_chapter_structure(
         self, converter, sample_novel_content, sample_metadata, tmp_path
     ):
         """测试EPUB章节结构。"""
+        pytest.importorskip("ebooklib")
         epub_path = converter.convert_to_epub(sample_novel_content, sample_metadata)
 
-        try:
-            from ebooklib import epub
-            book = epub.read_epub(epub_path)
+        from ebooklib import epub
+        book = epub.read_epub(epub_path)
 
-            # 获取所有章节（排除导航页）
-            chapters = [
-                item for item in book.get_items()
-                if isinstance(item, epub.EpubHtml) and not isinstance(item, epub.EpubNav)
-            ]
+        # 获取所有章节（排除导航页）
+        chapters = [
+            item for item in book.get_items()
+            if isinstance(item, epub.EpubHtml) and not isinstance(item, epub.EpubNav)
+        ]
 
-            # 应该有3个章节
-            assert len(chapters) == 3
+        # 应该有3个章节
+        assert len(chapters) == 3
 
-            # 检查章节内容存在
-            for ch in chapters:
-                content = ch.get_content().decode("utf-8")
-                assert len(content) > 0
-        except ImportError:
-            pytest.skip("ebooklib 未安装，跳过章节结构验证")
+        # 检查章节内容存在
+        for ch in chapters:
+            content = ch.get_content().decode("utf-8")
+            assert len(content) > 0
 
     def test_epub_css_style(
         self, converter, sample_novel_content, sample_metadata, tmp_path
     ):
         """测试EPUB包含CSS样式。"""
+        pytest.importorskip("ebooklib")
         epub_path = converter.convert_to_epub(sample_novel_content, sample_metadata)
 
-        try:
-            from ebooklib import epub
-            book = epub.read_epub(epub_path)
+        from ebooklib import epub
+        book = epub.read_epub(epub_path)
 
-            # 查找CSS文件
-            css_items = [
-                item for item in book.get_items()
-                if isinstance(item, epub.EpubItem) and item.media_type == "text/css"
-            ]
+        # 查找CSS文件
+        css_items = [
+            item for item in book.get_items()
+            if isinstance(item, epub.EpubItem) and item.media_type == "text/css"
+        ]
 
-            assert len(css_items) > 0
+        assert len(css_items) > 0
 
-            # 验证CSS内容
-            css_content = css_items[0].get_content().decode("utf-8")
-            assert "font-family" in css_content
-            assert "text-indent" in css_content
-        except ImportError:
-            pytest.skip("ebooklib 未安装，跳过CSS样式验证")
+        # 验证CSS内容
+        css_content = css_items[0].get_content().decode("utf-8")
+        assert "font-family" in css_content
+        assert "text-indent" in css_content
 
 
 # ── Markdown 导出集成测试 ────────────────────────────────────
@@ -295,6 +289,7 @@ class TestBatchExportIntegration:
         self, converter, sample_novel_content, sample_metadata, tmp_path
     ):
         """测试一键全格式导出。"""
+        pytest.importorskip("ebooklib")
         results = converter.convert_to_all(
             sample_novel_content,
             sample_metadata,
@@ -314,6 +309,7 @@ class TestBatchExportIntegration:
         self, converter, sample_novel_content, sample_metadata, tmp_path
     ):
         """测试批量导出创建目录。"""
+        pytest.importorskip("ebooklib")
         export_dir = tmp_path / "batch_exports"
 
         results = converter.convert_to_all(
@@ -333,25 +329,22 @@ class TestBatchExportIntegration:
         self, converter, sample_novel_content, sample_metadata, tmp_path
     ):
         """测试批量导出包含EPUB。"""
+        pytest.importorskip("ebooklib")
         results = converter.convert_to_all(
             sample_novel_content,
             sample_metadata,
             output_dir=str(tmp_path / "all_formats")
         )
 
-        # 如果ebooklib安装了，应该有epub
-        try:
-            import ebooklib
-            assert "epub" in results
-            assert Path(results["epub"]).exists()
-        except ImportError:
-            # ebooklib未安装时，可能没有epub
-            pass
+        # ebooklib 已安装，应该有epub
+        assert "epub" in results
+        assert Path(results["epub"]).exists()
 
     def test_batch_export_all_platforms(
         self, converter, sample_novel_content, sample_metadata, tmp_path
     ):
         """测试批量导出包含所有平台格式。"""
+        pytest.importorskip("ebooklib")
         results = converter.convert_to_all(
             sample_novel_content,
             sample_metadata,
@@ -360,8 +353,8 @@ class TestBatchExportIntegration:
 
         # 验证所有平台格式
         for platform in SUPPORTED_PLATFORMS:
-            if platform in results:
-                assert Path(results[platform]).exists()
+            assert platform in results
+            assert Path(results[platform]).exists()
 
 
 # ── 与NovelLogger集成测试 ────────────────────────────────────
@@ -392,6 +385,7 @@ class TestConverterNovelLoggerIntegration:
         self, novel_logger, converter, sample_chapter_contents, sample_metadata, tmp_path
     ):
         """测试从NovelLogger合并后导出为EPUB。"""
+        pytest.importorskip("ebooklib")
         # 保存章节
         for chapter in sample_chapter_contents:
             novel_logger.save_chapter(chapter.chapter_num, chapter)
@@ -480,6 +474,7 @@ class TestConverterNovelLoggerIntegration:
         self, novel_logger, converter, sample_chapter_contents, sample_metadata, tmp_path
     ):
         """测试完整管线：保存章节 → 合并 → 全格式导出。"""
+        pytest.importorskip("ebooklib")
         # 1. 保存所有章节
         for chapter in sample_chapter_contents:
             novel_logger.save_chapter(chapter.chapter_num, chapter)

@@ -6,18 +6,43 @@ Story Wiki Web UI — FastAPI 后端。
 from __future__ import annotations
 
 import re
+import sys
 from pathlib import Path
 
 import yaml
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi import (
+    Depends,
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    UploadFile,
+)
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+
+from web.auth import (
+    auth_enabled,
+    clear_session,
+    require_auth,
+    set_session,
+    verify_password,
+)
+
+# 保证 `python -m uvicorn web.app:app` 与包内导入两种方式都能找到 src 模块
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 # ── 路径配置 ──────────────────────────────────────────────────
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 # 默认读取本地生成目录，也支持 Obsidian Vault
 OUTPUT_DIR = BASE_DIR / "data" / "output"
+# 上传文件存放目录（复用 CLI 分析的输入目录）
+INPUT_DIR = BASE_DIR / "data" / "input"
+# 上传限制
+ALLOWED_EXTS = {".txt", ".md", ".epub", ".pdf", ".docx"}
+MAX_UPLOAD_BYTES = 100 * 1024 * 1024  # 100MB
 
 # ── .md 文件解析器 ────────────────────────────────────────────
 
@@ -404,3 +429,169 @@ async def api_timeline(title: str, importance: str = "", character: str = ""):
     events.sort(key=lambda e: imp_order.get(e["importance"], 1))
 
     return {"events": events, "total": len(events)}
+
+
+# ── 全局全文检索（SQLite + FTS5） ─────────────────────────────
+
+
+@app.get("/api/search")
+async def api_search(q: str = "", kind: str = "", limit: int = 20):
+    """跨作品全文检索实体（人物/事件/设定），走 SQLite FTS5。"""
+    if not q.strip():
+        return {"results": [], "total": 0}
+    try:
+        from src.db import connect, search_entities
+
+        conn = connect()
+        try:
+            results = search_entities(
+                conn, q, kind=kind or None, limit=limit
+            )
+        finally:
+            conn.close()
+    except ImportError:
+        raise HTTPException(503, "SQLite 元数据层不可用（缺少 src/db.py）")
+    return {"results": results, "total": len(results)}
+
+
+# ── 文档上传与后台分析任务 ────────────────────────────────────
+
+
+@app.post("/api/documents", dependencies=[Depends(require_auth)])
+async def api_upload_document(file: UploadFile = File(...), title: str = Form("")):
+    """上传待分析文档（txt/md/epub/pdf/docx），保存到 data/input/。"""
+    from src.utils import safe_filename
+
+    filename = file.filename or ""
+    ext = Path(filename).suffix.lower()
+    if ext not in ALLOWED_EXTS:
+        raise HTTPException(
+            400, f"不支持的格式 {ext or '(无后缀)'}，允许: {', '.join(sorted(ALLOWED_EXTS))}"
+        )
+    data = await file.read()
+    if not data:
+        raise HTTPException(400, "上传文件为空")
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(413, f"文件超过大小限制（{MAX_UPLOAD_BYTES // 1024 // 1024}MB）")
+
+    # 同名不覆盖：追加时间戳后缀
+    INPUT_DIR.mkdir(parents=True, exist_ok=True)
+    stem = safe_filename(Path(filename).stem) or "untitled"
+    dest = INPUT_DIR / f"{stem}{ext}"
+    if dest.exists():
+        import time as _time
+        dest = INPUT_DIR / f"{stem}_{_time.strftime('%Y%m%d_%H%M%S')}{ext}"
+    dest.write_bytes(data)
+
+    return {
+        "filename": dest.name,
+        "size": len(data),
+        "title": title.strip() or stem,
+        "path": str(dest),
+    }
+
+
+@app.post("/api/analyze", dependencies=[Depends(require_auth)])
+async def api_start_analyze(payload: dict):
+    """
+    启动后台分析任务：{"filename": "...", "title": "可选", "incremental": false}
+
+    立即返回 task_id，用 GET /api/tasks/{task_id} 轮询进度。
+    """
+    from web import tasks as task_mgr
+
+    filename = (payload or {}).get("filename", "")
+    if not filename:
+        raise HTTPException(400, "缺少 filename")
+    file_path = INPUT_DIR / Path(filename).name
+    if not file_path.exists():
+        raise HTTPException(404, f"文件不存在: {filename}，请先上传")
+    if file_path.suffix.lower() not in ALLOWED_EXTS:
+        raise HTTPException(400, "不支持的文件格式")
+
+    title = (payload.get("title") or "").strip() or file_path.stem
+    incremental = bool(payload.get("incremental", False))
+
+    task_id = task_mgr.create_task(title, file_path.name)
+    task_mgr.start_analysis(task_id, file_path, title, OUTPUT_DIR, incremental)
+    return {"task_id": task_id, "status": "pending"}
+
+
+@app.get("/api/tasks/{task_id}")
+async def api_task_status(task_id: str):
+    """查询后台分析任务进度。"""
+    from web import tasks as task_mgr
+
+    task = task_mgr.get_task(task_id)
+    if not task:
+        raise HTTPException(404, f"任务不存在: {task_id}")
+    return task
+
+
+# ── 登录 / 登出（P2 最小鉴权） ────────────────────────────────
+
+_LOGIN_PAGE = """<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>登录 - Story Wiki</title>
+<style>
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+         display: flex; align-items: center; justify-content: center;
+         min-height: 100vh; margin: 0; background: #f5f5f7; }
+  .card { background: #fff; border-radius: 16px; padding: 40px;
+          width: 320px; box-shadow: 0 4px 24px rgba(0,0,0,.08); }
+  h1 { font-size: 20px; margin: 0 0 8px; color: #1d1d1f; }
+  p  { font-size: 13px; color: #8e8e93; margin: 0 0 24px; }
+  input { width: 100%; box-sizing: border-box; padding: 11px 12px;
+          border: 1px solid #d1d1d6; border-radius: 8px; font-size: 14px;
+          margin-bottom: 14px; }
+  button { width: 100%; padding: 11px; border: none; border-radius: 8px;
+           background: #007aff; color: #fff; font-size: 14px;
+           font-weight: 600; cursor: pointer; }
+  .err { color: #ff3b30; font-size: 13px; margin-bottom: 12px; min-height: 16px; }
+</style>
+</head>
+<body>
+  <form class="card" method="post" action="/login">
+    <h1>Story Wiki</h1>
+    <p>请输入访问密码</p>
+    <div class="err">{error}</div>
+    <input type="password" name="password" placeholder="访问密码" autofocus>
+    <button type="submit">登 录</button>
+  </form>
+</body>
+</html>"""
+
+
+@app.get("/login")
+async def login_page(error: str = ""):
+    """登录页（鉴权未开启时直接跳首页）。"""
+    if not auth_enabled():
+        return RedirectResponse("/")
+    return HTMLResponse(_LOGIN_PAGE.replace("{error}", error))
+
+
+@app.post("/login")
+async def login_submit(request: Request):
+    """校验密码并种下 session cookie。"""
+    if not auth_enabled():
+        return RedirectResponse("/")
+    form = await request.form()
+    password = str(form.get("password", ""))
+    if verify_password(password):
+        response = RedirectResponse("/", status_code=303)
+        set_session(response)
+        return response
+    return HTMLResponse(
+        _LOGIN_PAGE.replace("{error}", "密码错误，请重试"), status_code=401
+    )
+
+
+@app.post("/logout")
+async def logout():
+    """登出：清除 session cookie。"""
+    response = RedirectResponse("/", status_code=303)
+    clear_session(response)
+    return response

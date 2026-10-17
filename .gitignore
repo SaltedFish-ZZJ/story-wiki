@@ -26,6 +26,7 @@ data/state/
 
 # 生成产物（体积大，可由源码重新生成）
 data/output/
+data/wiki.db
 output/
 
 # Obsidian 配置（每台机器不同）

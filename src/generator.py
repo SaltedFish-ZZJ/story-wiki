@@ -74,7 +74,29 @@ def generate_vault(analysis: dict, output_dir: Path = None) -> list[str]:
     if timeline_path:
         generated_files.append(str(timeline_path))
 
+    # 生成结束后自动增量入库（SQLite 元数据层）
+    _auto_index(output, book_dir)
+
     return generated_files
+
+
+def _auto_index(output: Path, book_dir: Path) -> None:
+    """生成结束后把该作品增量入库到 SQLite（失败只记日志，不影响生成结果）。"""
+    try:
+        from src.db import connect
+        from src.indexer import index_book
+
+        conn = connect()
+        try:
+            stats = index_book(conn, output, book_dir)
+            logger.info(
+                f"自动入库完成：{stats['title']} 新索引 {stats['entities']} 个实体 / "
+                f"{stats['relations']} 条关系"
+            )
+        finally:
+            conn.close()
+    except Exception as exc:  # noqa: BLE001 — 索引失败不能拖垮生成主流程
+        logger.warning(f"自动入库失败（不影响已生成的 md 文件）: {exc}")
 
 
 # ── 辅助函数 ──────────────────────────────────────────────────
@@ -1016,6 +1038,9 @@ def generate_vault_incremental(analysis: dict, output_dir: Path = None) -> list[
 
     # 始终重新生成索引文件
     generated_files.append(str(_write_book_index(title, summary, characters, settings, events, book_dir, char_map, setting_map, event_map)))
+
+    # 生成结束后自动增量入库（SQLite 元数据层）
+    _auto_index(output, book_dir)
 
     return generated_files
 
