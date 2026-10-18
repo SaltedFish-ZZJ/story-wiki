@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.13.4 (2026-10-18)
+
+### 功能 — Agent Skill：Agent 驱动分析模式（零 API key）
+
+- 新增 `--plan` / `--ingest` CLI 模式（[src/commands/agent.py](src/commands/agent.py)）：把「LLM 分析」环节交给外部 Agent（WorkBuddy / Claude / Trae 等），项目退化为分章器 + 知识库 + 校验器，全程零 API 调用
+- `--plan <file> --title X`：纯本地提取文本（txt/md/epub/pdf/docx）并切章，产出 `data/agent_runs/<书名>/manifest.json` + 逐章原文，作为 Agent 的任务清单
+- `--ingest cards.json [--chapter 第N章] [--book-title X]`：接收 Agent 生成的卡片 JSON，宽松校验 + 兼容归一化（participants/related_*/cause/effect 兼容 {name} 对象与字符串两种形态、缺 name 实体跳过并警告），增量写入知识库（复用 `generate_vault_incremental`，同名卡更新、索引自动重建）
+- 新增 `skills/story-wiki/SKILL.md`：Agent 操作说明书 —— 四步工作流、完整卡片 JSON Schema、提取规则（实体名一致性、跨章因果链格式）、常见问题
+- 端到端验证：plan 切章 → 模拟 Agent 卡片 → ingest 写入 → Web API 可读（overview/timeline）→ 清理测试数据重建索引
+- .gitignore 增加 `data/agent_runs/`（章节原文含版权内容）
+
+**测试结果：** 650 passed, 0 failed
+
 ## v0.13.3 (2026-10-18)
 
 ### 功能 — MCP 读侧 Server

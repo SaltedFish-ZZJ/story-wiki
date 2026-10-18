@@ -55,6 +55,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--growth-analysis", type=str, nargs="?", const="", default=None,
                         help="分析角色成长曲线（可选指定人物名，不指定则分析全部主要人物）")
 
+    # ── Agent 驱动模式（零 API 调用，LLM 由外部 Agent 提供）──
+    parser.add_argument("--plan", type=str, default=None, metavar="FILE",
+                        help="Agent 模式：纯本地切章，产出 manifest.json + 章节原文，交给 Agent 逐章分析")
+    parser.add_argument("--ingest", type=str, default=None, metavar="CARDS_JSON",
+                        help="Agent 模式：把 Agent 生成的卡片 JSON 增量写入知识库（零 API 调用）")
+    parser.add_argument("--book-title", type=str, default=None, help="配合 --ingest：指定书名（卡片 JSON 未提供 title 时）")
+    parser.add_argument("--chapter", type=str, default=None, help="配合 --ingest：为这批事件卡注入章节归属（如 \"第3章\"）")
+
     # ── 格式转换/导出参数 ──
     parser.add_argument("--export-markdown", action="store_true", help="将已生成的小说导出为Markdown格式")
     parser.add_argument("--export-epub", action="store_true", help="将已生成的小说导出为EPUB格式")
@@ -95,6 +103,15 @@ def main():
     if args.export_markdown or args.export_epub or args.export_txt or args.batch_export:
         from src.commands.export import run_export
         run_export(args)
+        return
+
+    # ── Agent 驱动模式 ──
+    if args.plan or args.ingest:
+        from src.commands.agent import run_ingest, run_plan
+        if args.plan:
+            run_plan(args)
+        else:
+            run_ingest(args)
         return
 
     # ── 创作模式 ──
