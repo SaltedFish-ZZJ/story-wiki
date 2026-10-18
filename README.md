@@ -19,9 +19,12 @@ Story Wiki 把长文本拆解成可查询、可续写的结构化知识库。
 
 ## 功能
 
+- **MCP 读侧服务**：9 个纯本地只读工具（书目/跨作品搜索/人物/事件/设定/时间线/关系图谱），FastMCP stdio 接入 Claude Desktop 等任意 MCP 客户端，查询全程零 LLM 调用
+- **Agent Skill 工作流**：`--plan` 本地切章产 manifest → LLM Agent 按 SKILL.md 逐章提取卡片 → `--ingest` 宽松校验增量写库并自动刷新 Web，分析过程从黑盒 API 变成可编排的 Agent 任务
 - **分析**：从小说/历史/传记中提取人物、关系、设定标签，生成 Obsidian 笔记
 - **可视化**：Obsidian Graph View 查看人物关系网络（节点颜色区分角色）
 - **Web 一体化**：浏览器上传 txt/md/epub/pdf/docx → 后台异步分析 → 进度条轮询，全程免命令行
+- **时间线双视图**：「按章节」（弧线带 + 长书无限滚动）|「按情节」（因果链串情节弧：起因→发展→高潮→结局），前端纯读侧实现，无章节标记的书自动退化为分块/硬切分兜底
 - **全文检索**：SQLite FTS5 跨作品检索人物/事件/设定，生成新书自动入库
 - **权限控制**：环境变量单用户密码 + HMAC 签名会话（可选，不设置即开放）
 - **角色成长曲线**：追踪人物状态变化，生成成长事件、阶段分析与趋势报告
@@ -44,21 +47,26 @@ Web 层（FastAPI）               web/app.py
   ├─ 检索 API：GET /api/search（FTS5）
   ├─ 写 API：上传/任务（POST，受 STORY_WIKI_PASSWORD 鉴权）
   └─ 后台任务：threading 单并发队列   web/tasks.py
+
+Agent 生态
+  ├─ MCP 读侧服务（FastMCP stdio）   web/mcp_server.py（9 个只读工具，零 LLM 调用）
+  └─ Agent Skill 工作流             skills/story-wiki/SKILL.md
+                                    + src/commands/agent.py（--plan / --ingest）
 ```
 
 依赖极简：核心只用 `psutil` + `requests` + 标准库（sqlite3/hashlib/hmac/threading）；
-可选 extra：`formats`（epub/pdf）、`office`（docx）、`web`（FastAPI）。
+可选 extra：`formats`（epub/pdf）、`office`（docx）、`web`（FastAPI）、`mcp`（MCP server）。
 
 ## 规模
 
 | 项 | 数量 |
 |---|---|
-| Python 模块 | 34 个（含 6 个 CLI 子命令模块） |
-| 代码行数 | 源码 14,000+ 行 + 测试 11,000+ 行 |
-| 单元测试 | 633 个（pytest，全部通过） |
+| Python 模块 | 40 个（含 6 个 CLI 子命令模块） |
+| 代码行数 | 源码 12,800+ 行 + 测试 9,100+ 行 |
+| 单元测试 | 650 个（pytest，全部通过） |
 | 实测文本 | 80 万字长篇小说（平凡的世界全三部，1,253 实体入库） |
 | 模型接入 | 任意 OpenAI 兼容接口（默认小米 MiMo，可换 DeepSeek） |
-| Web 界面 | FastAPI + 原生 JS，12 个 API 接口 |
+| Web 界面 | FastAPI + 原生 JS，19 个 API 接口 |
 | 元数据层 | SQLite + FTS5（document/entity/relation/event_time） |
 
 
@@ -98,6 +106,36 @@ python src/main.py --input data/input/your_novel.txt --title "书名"
 python src/agent.py
 
 # 6. 用 Obsidian 打开 vault 目录，查看 Graph View
+```
+
+### Agent 生态（MCP + Agent Skill）
+
+不配置 API Key 也能用 Agent 驱动：本地 CLI 只负责切章、校验与写库，LLM 由外部 Agent（Claude Desktop 等 MCP 客户端）提供，两者解耦。
+
+**MCP 读侧服务**（把已有知识库接入 MCP 客户端查询）：
+
+```bash
+python -m pip install -e ".[mcp]"
+```
+
+在 MCP 客户端（如 Claude Desktop）中注册：
+
+```json
+{ "mcpServers": { "story-wiki": { "command": "python", "args": ["<项目路径>/web/mcp_server.py"] } } }
+```
+
+注册后可直接问：「帮我查《平凡的世界》里孙少安参与了哪些事件」「跨作品搜一下所有跟水库有关的设定」——9 个工具覆盖书目/搜索/人物/事件/设定/时间线/关系图谱，全程本地读取、零 API 消耗。
+
+**Agent Skill 工作流**（分析新书，LLM 只做提取）：
+
+```bash
+# 1. 纯本地切章，产出 manifest.json + 章节原文（data/agent_runs/书名/）
+python src/main.py --plan data/input/书名.txt --title "书名"
+
+# 2. 把 chapters/*.txt 按 skills/story-wiki/SKILL.md 的 JSON 规范交给 LLM Agent 逐章提取
+
+# 3. 宽松校验 + 增量写库 + 自动通知 Web 刷新
+python src/main.py --ingest result.json --book-title "书名"
 ```
 
 ### 可选安装
