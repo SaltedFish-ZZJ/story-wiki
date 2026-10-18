@@ -486,7 +486,7 @@ function renderGraph() {
 // ── 03 章节时间线：弧线带（全书导航）+ 竖向卷轴（章节详情） ──
 const IMPCLS = { "高": "hi", "中": "md", "低": "lo" };
 const AX_BATCH = 50, AX_FULL = 60, AX_SEG_TH = 240;   // 卷轴增量批量 / 全量阈值 / 弧线分段阈值
-let axFilter = "高", axOpen = 0, axGroups = [], axMaxN = 1, axShown = 0, axObserver = null;
+let axFilter = "高", axOpen = null, axGroups = [], axMaxN = 1, axShown = 0, axObserver = null;
 function renderAxis(reset) {
     const evs = cache[state.book].timeline.events;
     const counts = { "高": 0, "中": 0, "低": 0 };
@@ -504,77 +504,94 @@ function renderAxis(reset) {
                 x.classList.toggle("on", x.dataset.f === axFilter));
             regroup();
             axShown = 0;
-            if (!axGroups.some(g => g.ch === axOpen)) {
+            if (!axGroups.some(g => g.key === axOpen)) {
                 const top = axTopGroup();
-                axOpen = top ? top.ch : -1;
+                axOpen = top ? top.key : null;
             }
             drawArc();
             drawSpine();
         }));
     regroup();
     axShown = 0;
-    if (reset || !axGroups.some(g => g.ch === axOpen)) {
+    if (reset || !axGroups.some(g => g.key === axOpen)) {
         const top = axTopGroup();
-        axOpen = top ? top.ch : -1;
+        axOpen = top ? top.key : null;
     }
     drawArc();
     drawSpine();
 }
+// 组显示名：有「第X章」前缀 → 只显示章号；无号章节标题 → 截断原名；空 → 未标章
+function axGroupLabel(key) {
+    if (!key) return "未标章";
+    const n = chapterNum(key);
+    if (n && /^第[0-9零一二两三四五六七八九十百千]+章/.test(key)) return `第${n}章`;
+    const s = String(key).trim();
+    return s.length > 16 ? s.slice(0, 16) + "…" : s;
+}
 function regroup() {
     const list = cache[state.book].timeline.events
-        .filter(e => axFilter === "全部" || e.importance === axFilter)
-        .slice()
-        .sort((a, b) => chapterNum(a.chapter) - chapterNum(b.chapter));
-    axGroups = [];
-    let last = null;
+        .filter(e => axFilter === "全部" || e.importance === axFilter);
+    // 按章节原串分组（AI 填写可能只有标题没有章号，数字归组会误伤），排序：有号章在前按章号，无号标题按首次出现序，「未标章」最后
+    // 「本章/本回」等相对引用无定位信息，视同未标章
+    const VAGUE_CH = /^(本章|本回|本节|同章|同回|当前章(节)?)$/;
+    const order = new Map(), groups = new Map();
     for (const e of list) {
-        const n = chapterNum(e.chapter);
-        if (n !== last) { axGroups.push({ ch: n, events: [] }); last = n; }
-        axGroups[axGroups.length - 1].events.push(e);
+        let key = (e.chapter || "").trim();
+        if (VAGUE_CH.test(key)) key = "";
+        if (!groups.has(key)) {
+            groups.set(key, { key, num: chapterNum(key), label: axGroupLabel(key), events: [] });
+            order.set(key, order.size);
+        }
+        groups.get(key).events.push(e);
     }
+    axGroups = [...groups.values()].sort((a, b) => {
+        const ua = a.num > 0, ub = b.num > 0;
+        if (ua !== ub) return ua ? -1 : 1;                    // 有号章在前
+        if (ua && ub) return a.num - b.num;                   // 有号按章号
+        const emptyA = !a.key, emptyB = !b.key;
+        if (emptyA !== emptyB) return emptyA ? 1 : -1;        // 未标章垫底
+        return order.get(a.key) - order.get(b.key);           // 无号按首次出现序
+    });
     axMaxN = Math.max(1, ...axGroups.map(g => g.events.length));
 }
 // 默认展开/峰值标注目标：优先有章节号的组，「未标章」兜底
 function axTopGroup() {
-    const withCh = axGroups.filter(g => g.ch > 0);
+    const withCh = axGroups.filter(g => g.num > 0);
     const pool = withCh.length ? withCh : axGroups;
     return pool.slice().sort((a, b) => b.events.length - a.events.length)[0] || null;
 }
 function drawArc() {
     const svg = $("#axsvg");
-    const maxCh = Math.max(0, ...axGroups.map(g => g.ch));
-    if (!maxCh) { svg.innerHTML = ""; return; }
+    if (!axGroups.length) { svg.innerHTML = ""; return; }
     const W = 1000, x0 = 20, base = 106, maxH = 82;
-    const byCh = new Map(axGroups.map(g => [g.ch, g.events.length]));
-    // 统一柱条模型：章模式（每章一柱）；超长书段模式（每柱代表 N 章，恒定 ≤120 柱保证可点击）
-    const seg = maxCh > AX_SEG_TH ? Math.ceil(maxCh / 120) : 0;
+    const nG = axGroups.length;
+    // 统一柱条模型：每组一柱（组 = 章节原串，含无号章标题），按组索引均分；超长书段模式（每柱合并 N 组，恒定 ≤120 柱保证可点击）
+    const seg = nG > AX_SEG_TH ? Math.ceil(nG / 120) : 0;
     const items = [];
     if (!seg) {
-        const step = (W - x0 * 2) / maxCh, bw = Math.max(4, step - 3);
-        for (let ch = 1; ch <= maxCh; ch++)
-            items.push({ cx: x0 + (ch - 1) * step + step / 2, bw, n: byCh.get(ch) || 0, jump: ch, label: `第${ch}章` });
+        const step = (W - x0 * 2) / nG, bw = Math.max(4, step - 3);
+        axGroups.forEach((g, i) =>
+            items.push({ cx: x0 + i * step + step / 2, bw, n: g.events.length, gi: i, label: g.label }));
     } else {
-        const nseg = Math.ceil(maxCh / seg), step = (W - x0 * 2) / nseg, bw = Math.max(4, step - 3);
+        const nseg = Math.ceil(nG / seg), step = (W - x0 * 2) / nseg, bw = Math.max(4, step - 3);
         for (let i = 0; i < nseg; i++) {
-            const s = i * seg + 1, e = Math.min(maxCh, (i + 1) * seg);
+            const s = i * seg, e = Math.min(nG, (i + 1) * seg);
             let n = 0;
-            for (let ch = s; ch <= e; ch++) n += byCh.get(ch) || 0;
-            items.push({ cx: x0 + (i + 0.5) * step, bw, n, s, e, label: `第${s}-${e}章` });
+            for (let gi = s; gi < e; gi++) n += axGroups[gi].events.length;
+            items.push({ cx: x0 + (i + 0.5) * step, bw, n, s, e, label: `${axGroups[s].label} 起` });
         }
     }
     const maxN = Math.max(1, ...items.map(t => t.n));
     let bars = "";
     for (const t of items) {
         const x = (t.cx - t.bw / 2).toFixed(1);
-        if (!t.n) {
-            if (!seg) bars += `<rect class="axstub" x="${x}" y="102" width="2" height="4" rx="1"/>`;
-            continue;
-        }
         const h = Math.max(6, (t.n / maxN) * maxH);
         const r = t.n / maxN;
         const d = r > 0.75 ? "d4" : r > 0.5 ? "d3" : r > 0.25 ? "d2" : "d1";
-        const sel = seg ? (axOpen >= t.s && axOpen <= t.e) : axOpen === t.jump;
-        const attrs = seg ? `data-s="${t.s}" data-e="${t.e}"` : `data-ch="${t.jump}"`;
+        const sel = seg ? (axOpen != null && axGroups.findIndex(g => g.key === axOpen) >= t.s
+            && axGroups.findIndex(g => g.key === axOpen) < t.e)
+            : axOpen === axGroups[t.gi].key;
+        const attrs = seg ? `data-s="${t.s}" data-e="${t.e}"` : `data-gi="${t.gi}"`;
         bars += `<rect class="axb ${d}${sel ? " sel" : ""}" ${attrs} x="${x}" y="${(base - h).toFixed(1)}" width="${t.bw.toFixed(1)}" height="${h.toFixed(1)}" rx="2"><title>${t.label} · ${t.n} 个事件</title></rect>`;
     }
     // 峰值柱胶囊标注
@@ -587,29 +604,37 @@ function drawArc() {
         const topY = Math.max(4, base - Math.max(6, (peak.n / maxN) * maxH) - 30);
         cap = `<rect class="axcap" x="${cx.toFixed(1)}" y="${topY.toFixed(1)}" width="${wcap}" height="22" rx="11"/><text class="axcapt" x="${(cx + wcap / 2).toFixed(1)}" y="${(topY + 15).toFixed(1)}" text-anchor="middle">${label}</text>`;
     }
-    // 刻度
+    // 刻度：只标有章节号的组（每 N 个组一个）
     let ticks = "";
+    const every = nG > 60 ? 20 : 10, step = (W - x0 * 2) / (seg ? Math.ceil(nG / seg) : nG);
+    let ticked = 0;
     if (!seg) {
-        const every = maxCh > 60 ? 20 : 10, step = (W - x0 * 2) / maxCh;
-        for (let ch = every; ch <= maxCh; ch += every)
-            ticks += `<text class="axtick" x="${(x0 + (ch - 1) * step + step / 2).toFixed(1)}" y="124" text-anchor="middle">第${ch}章</text>`;
+        for (let i = 0; i < nG && ticked < 12; i++) {
+            const g = axGroups[i];
+            if (g.num <= 0 || g.num % every) continue;
+            ticks += `<text class="axtick" x="${(x0 + i * step + step / 2).toFixed(1)}" y="124" text-anchor="middle">第${g.num}章</text>`;
+            ticked++;
+        }
     } else {
-        const nseg = Math.ceil(maxCh / seg), step = (W - x0 * 2) / nseg;
-        for (let i = 4; i < nseg; i += 5)
-            ticks += `<text class="axtick" x="${(x0 + (i + 0.5) * step).toFixed(1)}" y="124" text-anchor="middle">第${i * seg + 1}章</text>`;
+        const nseg = Math.ceil(nG / seg);
+        for (let i = 4; i < nseg; i += 5) {
+            const g = axGroups[i * seg];
+            if (!g) continue;
+            ticks += `<text class="axtick" x="${(x0 + (i + 0.5) * step).toFixed(1)}" y="124" text-anchor="middle">${g.num > 0 ? `第${g.num}章` : g.label}</text>`;
+        }
     }
     svg.innerHTML = `<line class="axaxis" x1="${x0}" y1="${base}" x2="${W - x0}" y2="${base}"/>` + ticks + bars + cap;
     svg.querySelectorAll(".axb").forEach(b =>
         b.addEventListener("click", () => {
-            // 章模式精确跳章；段模式跳到段内第一个有事件的章
-            const g = b.dataset.ch
-                ? axGroups.find(x => x.ch === +b.dataset.ch)
-                : axGroups.find(x => x.ch >= +b.dataset.s && x.ch <= +b.dataset.e);
+            // 组模式精确跳组；段模式跳到段内第一组
+            const g = b.dataset.gi != null
+                ? axGroups[+b.dataset.gi]
+                : axGroups[+b.dataset.s];
             if (!g) return;
-            axOpen = g.ch;
+            axOpen = g.key;
             drawArc();
             drawSpine();
-            const row = document.getElementById(`axch-${g.ch}`);
+            const row = document.getElementById(`axrow-${b.dataset.gi != null ? b.dataset.gi : b.dataset.s}`);
             if (row) row.scrollIntoView({ behavior: "smooth", block: "center" });
         }));
 }
@@ -618,10 +643,10 @@ function axWho(ps) {
         `<span class="axwho" data-who="${esc(p.name)}" title="${esc(p.name)}">${esc((p.name || "?")[0])}</span>`).join("")
         + (ps.length > 4 ? `<span class="axwho more">+${ps.length - 4}</span>` : "");
 }
-function axRowHTML(g) {
-    const open = g.ch === axOpen;
+function axRowHTML(g, gi) {
+    const open = g.key === axOpen;
     const r = g.events.length / axMaxN;
-    const d = g.ch ? (r > 0.75 ? "d4" : r > 0.5 ? "d3" : r > 0.25 ? "d2" : "d1") : "d0";
+    const d = g.key ? (r > 0.75 ? "d4" : r > 0.5 ? "d3" : r > 0.25 ? "d2" : "d1") : "d0";
     const cards = g.events.slice(0, 6).map(e => `
       <div class="axec ${IMPCLS[e.importance] || ""}">
         <b data-open="${esc(e.name)}" title="${esc(e.name)}">${esc(e.name)}</b>
@@ -632,10 +657,10 @@ function axRowHTML(g) {
         ? `<div class="axecm" style="padding:2px 4px">还有 ${g.events.length - 6} 个事件 · 点击事件名查看完整卡片</div>` : "";
     const prev = open ? "" :
         `<div class="axprev">${g.events.slice(0, 2).map(e => esc(e.name)).join(" · ")}${g.events.length > 2 ? " …" : ""}</div>`;
-    return `<div class="axrow" id="axch-${g.ch}">
+    return `<div class="axrow" id="axrow-${gi}">
       <div class="axnode ${d}"></div>
-      <div class="axch${open ? " open" : ""}" data-ch="${g.ch}">
-        <div class="axchh"><span class="axchn">${g.ch ? `第${g.ch}章` : "未标章"}</span>
+      <div class="axch${open ? " open" : ""}" data-key="${esc(g.key)}">
+        <div class="axchh"><span class="axchn">${esc(g.label)}</span>
           <span class="axchc">${g.events.length} 个事件</span><span class="axcar">▶</span></div>
         ${prev}
         <div class="axcards">${cards}${rest}</div>
@@ -649,12 +674,12 @@ function drawSpine() {
         return;
     }
     // 展开的组必须已渲染；超过 AX_FULL 组的长书启用增量渲染（滚动到底自动追加）
-    const openIdx = axGroups.findIndex(g => g.ch === axOpen);
+    const openIdx = axGroups.findIndex(g => g.key === axOpen);
     const target = axGroups.length <= AX_FULL ? axGroups.length
         : Math.min(axGroups.length, Math.max(AX_BATCH, openIdx + 1));
     axShown = Math.min(axGroups.length, Math.max(axShown, target));
     const more = axGroups.length - axShown;
-    host.innerHTML = axGroups.slice(0, axShown).map(axRowHTML).join("")
+    host.innerHTML = axGroups.slice(0, axShown).map((g, i) => axRowHTML(g, i)).join("")
         + (more > 0 ? `<div class="axsent" id="axsent">↓ 还有 ${more} 章 · 滚动自动加载</div>` : "");
     // host 级事件委托：人物圆点 > 事件名 > 章节开合（追加行无需重复绑定）
     host.onclick = ev => {
@@ -664,8 +689,8 @@ function drawSpine() {
         if (o) { openEntity(o.dataset.open, "event"); return; }
         const ch = ev.target.closest(".axch");
         if (ch) {
-            const n = +ch.dataset.ch;
-            axOpen = axOpen === n ? -1 : n;
+            const key = ch.dataset.key;
+            axOpen = axOpen === key ? null : key;
             drawArc();
             drawSpine();
         }
@@ -686,7 +711,7 @@ function appendNextBatch() {
     axShown = Math.min(axGroups.length, axShown + AX_BATCH);
     const sent = $("#axsent");
     if (!sent) return;
-    sent.insertAdjacentHTML("beforebegin", axGroups.slice(from, axShown).map(axRowHTML).join(""));
+    sent.insertAdjacentHTML("beforebegin", axGroups.slice(from, axShown).map((g, i) => axRowHTML(g, i)).join(""));
     if (axShown >= axGroups.length) sent.remove();
     else sent.textContent = `↓ 还有 ${axGroups.length - axShown} 章 · 滚动自动加载`;
 }
