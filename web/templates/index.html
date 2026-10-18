@@ -125,6 +125,7 @@
       <div class="sec-head"><span class="idx">03</span><h2>章节时间线</h2><span class="n" id="axn"></span></div>
       <div class="panel" style="padding:0;overflow:hidden">
         <div class="axbar">
+          <div class="axtabs" id="axtabs"></div>
           <div class="axfilters" id="axfilters"></div>
           <div class="axlegend">
             <span><i style="background:color-mix(in srgb,var(--accent) 30%,transparent)"></i>少</span>
@@ -486,13 +487,30 @@ function renderGraph() {
 // ── 03 章节时间线：弧线带（全书导航）+ 竖向卷轴（章节详情） ──
 const IMPCLS = { "高": "hi", "中": "md", "低": "lo" };
 const AX_BATCH = 50, AX_FULL = 60, AX_SEG_TH = 240;   // 卷轴增量批量 / 全量阈值 / 弧线分段阈值
+let axView = "ch", chGroups = [], arcGroups = [];
 let axFilter = "高", axOpen = null, axGroups = [], axMaxN = 1, axShown = 0, axObserver = null;
 function renderAxis(reset) {
     const evs = cache[state.book].timeline.events;
     const counts = { "高": 0, "中": 0, "低": 0 };
     evs.forEach(e => { if (counts[e.importance] != null) counts[e.importance]++; });
-    $("#axn").textContent = `${evs.length} 个事件 · 弧线跳章 · 点章节展开`;
+    $("#axn").textContent = `${evs.length} 个事件 · 弧线跳转 · 点组展开`;
     if (reset) axFilter = counts["高"] ? "高" : "全部";
+    // 视图切换：按章节 / 按情节（因果链串弧）
+    $("#axtabs").innerHTML = [["ch", "按章节"], ["arc", "按情节"]].map(([v, t]) =>
+        `<button class="axtab${v === axView ? " on" : ""}" data-v="${v}">${t}</button>`).join("");
+    $("#axtabs").querySelectorAll(".axtab").forEach(b =>
+        b.addEventListener("click", () => {
+            if (b.dataset.v === axView) return;
+            axView = b.dataset.v;
+            $("#axtabs").querySelectorAll(".axtab").forEach(x =>
+                x.classList.toggle("on", x.dataset.v === axView));
+            axOpen = null;
+            regroup();
+            const top = axTopGroup();
+            axOpen = top ? top.key : null;
+            drawArc();
+            drawSpine();
+        }));
     $("#axfilters").innerHTML = ["高", "中", "低", "全部"].map(f => {
         const n = f === "全部" ? evs.length : counts[f];
         return `<button class="axbtn${f === axFilter ? " on" : ""}" data-f="${f}">${f} · ${n}</button>`;
@@ -528,9 +546,7 @@ function axGroupLabel(key) {
     const s = String(key).trim();
     return s.length > 16 ? s.slice(0, 16) + "…" : s;
 }
-function regroup() {
-    const list = cache[state.book].timeline.events
-        .filter(e => axFilter === "全部" || e.importance === axFilter);
+function buildChGroups(list) {
     // 按章节原串分组（AI 填写可能只有标题没有章号，数字归组会误伤），排序：有号章在前按章号，无号标题按首次出现序，「未标章」最后
     // 「本章/本回」等相对引用无定位信息，视同未标章
     const VAGUE_CH = /^(本章|本回|本节|同章|同回|当前章(节)?)$/;
@@ -544,7 +560,7 @@ function regroup() {
         }
         groups.get(key).events.push(e);
     }
-    axGroups = [...groups.values()].sort((a, b) => {
+    chGroups = [...groups.values()].sort((a, b) => {
         const ua = a.num > 0, ub = b.num > 0;
         if (ua !== ub) return ua ? -1 : 1;                    // 有号章在前
         if (ua && ub) return a.num - b.num;                   // 有号按章号
@@ -552,12 +568,65 @@ function regroup() {
         if (emptyA !== emptyB) return emptyA ? 1 : -1;        // 未标章垫底
         return order.get(a.key) - order.get(b.key);           // 无号按首次出现序
     });
+}
+function buildArcGroups(list) {
+    // 情节弧：因果链（前置事件→本事件→后续影响）串联事件成「事」。
+    // 弧 = 从无前置的根事件沿后续影响链走；≥2 事件成弧，弧名取「首 → 尾」；不成弧的收进「其他事件」
+    const norm = s => (s || "").trim().replace(/^.*\//, "");
+    const byName = new Map();
+    for (const e of list) {
+        const k = norm(e.name);
+        if (k && !byName.has(k)) byName.set(k, e);           // 同名卡取首张
+    }
+    const used = new Set();
+    const arcs = [];
+    const roots = [...byName.values()].filter(e => {
+        const causes = (e.cause || []).map(c => norm(c.name)).filter(n => byName.has(n));
+        return !causes.length;
+    });
+    roots.sort((a, b) => (b.effect || []).length - (a.effect || []).length);
+    for (const r of roots) {
+        const chain = [r], seen = new Set([norm(r.name)]);
+        let cur = r;
+        while (true) {
+            const nxt = (cur.effect || []).map(x => norm(x.name)).find(n => byName.has(n) && !seen.has(n));
+            if (!nxt) break;
+            chain.push(byName.get(nxt));
+            seen.add(nxt);
+            cur = byName.get(nxt);
+        }
+        if (chain.length >= 2) {
+            for (const e of chain) used.add(norm(e.name));
+            arcs.push(chain);
+        }
+    }
+    const solo = [...byName.values()].filter(e => !used.has(norm(e.name)));
+    const trunc = s => s.length > 22 ? s.slice(0, 22) + "…" : s;
+    arcGroups = arcs.sort((a, b) => b.length - a.length).map(chain => ({
+        key: "arc:" + norm(chain[0].name),
+        num: 0,
+        label: trunc(`${norm(chain[0].name)} → ${norm(chain[chain.length - 1].name)}`),
+        events: chain,
+    }));
+    if (solo.length)
+        arcGroups.push({ key: "arc:__solo__", num: 0, label: `其他事件（未成弧 ${solo.length}）`, events: solo });
+}
+function regroup() {
+    const list = cache[state.book].timeline.events
+        .filter(e => axFilter === "全部" || e.importance === axFilter);
+    buildChGroups(list);
+    buildArcGroups(list);
+    axGroups = axView === "arc" ? arcGroups : chGroups;
     axMaxN = Math.max(1, ...axGroups.map(g => g.events.length));
 }
-// 默认展开/峰值标注目标：优先有章节号的组，「未标章」兜底
+// 默认展开/峰值标注目标：章节模式优先有章节号的组；情节模式优先真实弧（排除「其他事件」）；「未标章」兜底
 function axTopGroup() {
     const withCh = axGroups.filter(g => g.num > 0);
-    const pool = withCh.length ? withCh : axGroups;
+    let pool = withCh.length ? withCh : axGroups;
+    if (axView === "arc") {
+        const real = axGroups.filter(g => g.key !== "arc:__solo__");
+        if (real.length) pool = real;
+    }
     return pool.slice().sort((a, b) => b.events.length - a.events.length)[0] || null;
 }
 function drawArc() {
@@ -565,13 +634,16 @@ function drawArc() {
     if (!axGroups.length) { svg.innerHTML = ""; return; }
     const W = 1000, x0 = 20, base = 106, maxH = 82;
     const nG = axGroups.length;
+    // solo 组（情节视图的「其他事件」）只画弱化灰柱，不参与峰值/强度计算
+    const soloKey = axView === "arc" ? "arc:__solo__" : null;
+    const forPeak = soloKey ? axGroups.filter(g => g.key !== soloKey) : axGroups;
     // 统一柱条模型：每组一柱（组 = 章节原串，含无号章标题），按组索引均分；超长书段模式（每柱合并 N 组，恒定 ≤120 柱保证可点击）
     const seg = nG > AX_SEG_TH ? Math.ceil(nG / 120) : 0;
     const items = [];
     if (!seg) {
         const step = (W - x0 * 2) / nG, bw = Math.max(4, step - 3);
         axGroups.forEach((g, i) =>
-            items.push({ cx: x0 + i * step + step / 2, bw, n: g.events.length, gi: i, label: g.label }));
+            items.push({ cx: x0 + i * step + step / 2, bw, n: g.events.length, gi: i, label: g.label, solo: g.key === soloKey }));
     } else {
         const nseg = Math.ceil(nG / seg), step = (W - x0 * 2) / nseg, bw = Math.max(4, step - 3);
         for (let i = 0; i < nseg; i++) {
@@ -581,10 +653,16 @@ function drawArc() {
             items.push({ cx: x0 + (i + 0.5) * step, bw, n, s, e, label: `${axGroups[s].label} 起` });
         }
     }
-    const maxN = Math.max(1, ...items.map(t => t.n));
+    const maxN = Math.max(1, ...items.filter(t => !t.solo).map(t => t.n));
     let bars = "";
     for (const t of items) {
         const x = (t.cx - t.bw / 2).toFixed(1);
+        if (t.solo) {
+            // solo 组灰柱：弱化显示，不参与峰值
+            const h2 = Math.max(6, (t.n / maxN) * maxH);
+            bars += `<rect class="axb stub" ${seg ? `data-s="${t.s}" data-e="${t.e}"` : `data-gi="${t.gi}"`} x="${x}" y="${(base - h2).toFixed(1)}" width="${t.bw.toFixed(1)}" height="${h2.toFixed(1)}" rx="2"><title>${t.label} · ${t.n} 个事件</title></rect>`;
+            continue;
+        }
         const h = Math.max(6, (t.n / maxN) * maxH);
         const r = t.n / maxN;
         const d = r > 0.75 ? "d4" : r > 0.5 ? "d3" : r > 0.25 ? "d2" : "d1";
@@ -594,8 +672,8 @@ function drawArc() {
         const attrs = seg ? `data-s="${t.s}" data-e="${t.e}"` : `data-gi="${t.gi}"`;
         bars += `<rect class="axb ${d}${sel ? " sel" : ""}" ${attrs} x="${x}" y="${(base - h).toFixed(1)}" width="${t.bw.toFixed(1)}" height="${h.toFixed(1)}" rx="2"><title>${t.label} · ${t.n} 个事件</title></rect>`;
     }
-    // 峰值柱胶囊标注
-    const peak = items.slice().sort((a, b) => b.n - a.n)[0];
+    // 峰值柱胶囊标注（排除 solo 组）
+    const peak = items.filter(t => !t.solo).sort((a, b) => b.n - a.n)[0];
     let cap = "";
     if (peak && peak.n > 0) {
         const label = `${peak.label} · ${peak.n}事件`;
@@ -647,10 +725,12 @@ function axRowHTML(g, gi) {
     const open = g.key === axOpen;
     const r = g.events.length / axMaxN;
     const d = g.key ? (r > 0.75 ? "d4" : r > 0.5 ? "d3" : r > 0.25 ? "d2" : "d1") : "d0";
-    const cards = g.events.slice(0, 6).map(e => `
+    const arc = axView === "arc" && g.key !== "arc:__solo__";
+    const cards = g.events.slice(0, 6).map((e, i) => `
       <div class="axec ${IMPCLS[e.importance] || ""}">
-        <b data-open="${esc(e.name)}" title="${esc(e.name)}">${esc(e.name)}</b>
-        <div class="axecm">${esc(chapterLabel(e.chapter))}${e.importance ? ` · 重要度 ${e.importance}` : ""}</div>
+        <b data-open="${esc(e.name)}" title="${esc(e.name)}">${arc ? `<span class="axstep">${i + 1}</span>` : ""}${esc(e.name)}</b>
+        <div class="axecm">${arc ? `第${i + 1}步 · ${esc(chapterLabel(e.chapter))}${e.importance ? ` · 重要度 ${e.importance}` : ""}`
+            : `${esc(chapterLabel(e.chapter))}${e.importance ? ` · 重要度 ${e.importance}` : ""}`}</div>
         ${(e.participants || []).length ? `<div class="axews">${axWho(e.participants)}</div>` : ""}
       </div>`).join("");
     const rest = g.events.length > 6

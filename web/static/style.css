@@ -233,6 +233,11 @@ body.dark .stage.done .dot{color:#141412}
 .axbtn{font-size:12px;padding:4px 14px;border:1px solid var(--line2);border-radius:99px;color:var(--sub);transition:all .15s}
 .axbtn:hover{border-color:var(--accent);color:var(--accent)}
 .axbtn.on{border-color:var(--accent);color:var(--accent);background:var(--accent-soft);font-weight:600}
+.axtabs{display:flex;gap:6px;padding-right:14px;margin-right:2px;border-right:1px solid var(--line)}
+.axtab{font-size:12px;font-weight:600;padding:4px 12px;border-radius:8px;color:var(--sub);background:transparent;transition:all .15s}
+.axtab:hover{color:var(--ink)}
+.axtab.on{background:var(--accent);color:var(--accent-contrast,var(--card))}
+.axec .axstep{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;border-radius:6px;background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent);font:600 11px var(--mono);margin-right:7px;vertical-align:-4px}
 .axlegend{display:flex;gap:14px;align-items:center;font-size:12px;color:var(--sub)}
 .axlegend i{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:5px}
 .axarc{padding:14px 18px 6px;border-bottom:1px solid var(--line)}
@@ -241,6 +246,7 @@ body.dark .stage.done .dot{color:#141412}
 .axb:hover{opacity:.75}
 .axb.sel{stroke:var(--ink);stroke-width:1.5px}
 .axstub{fill:var(--line2)}
+.axb.stub{fill:var(--line2)}
 .axtick{fill:var(--sub);font:400 11px var(--mono)}
 .axaxis{stroke:var(--line2);stroke-width:1}
 .axcap{fill:var(--card);stroke:var(--line2)}
