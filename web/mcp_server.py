@@ -197,7 +197,7 @@ async def get_setting(book: str, name: str) -> str:
 
 @mcp.tool()
 async def get_timeline(book: str, importance: str = "", character: str = "") -> str:
-    """按章节分组的事件时间线。
+    """事件时间线（扁平列表，含 chapter 归属与因果链，分组由客户端处理）。
 
     Args:
         book: 作品名
