@@ -169,8 +169,19 @@ def run_ingest(args) -> None:
     output = Path(args.output).resolve() if args.output else (Path("data/output")).resolve()
     files = generate_vault_incremental(analysis, output_dir=output)
 
+    # 通知运行中的 Web 服务清缓存，让新数据立即可见（服务未启动则静默跳过）
+    try:
+        import urllib.request
+
+        req = urllib.request.Request(
+            "http://127.0.0.1:8000/api/reload", method="POST", data=b"")
+        urllib.request.urlopen(req, timeout=2)
+        web_note = "Web 缓存已刷新"
+    except Exception:  # noqa: BLE001
+        web_note = "Web 服务未运行，启动后自动读取最新数据"
+
     print(f"作品: {analysis['title']}")
     print(f"写入: 人物 {len(analysis['characters'])} / 设定 {len(analysis['settings'])}"
           f" / 事件 {len(analysis['events'])}，生成/更新 {len(files)} 个文件")
     print(f"输出目录: {output}")
-    print("查看: Web 界面（python -m uvicorn web.app:app --port 8000）或 MCP 工具")
+    print(f"{web_note} · 查看: Web 界面（python -m uvicorn web.app:app --port 8000）或 MCP 工具")

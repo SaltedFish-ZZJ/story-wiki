@@ -135,7 +135,9 @@ def _find_book_dir(title: str) -> Path | None:
 _cache: dict[str, dict] = {}
 
 
-def _load_book(title: str) -> dict:
+def _load_book(title: str, force: bool = False) -> dict:
+    if force:
+        _cache.pop(title, None)
     if title in _cache:
         return _cache[title]
 
@@ -236,6 +238,13 @@ async def api_books():
             if book_dir:
                 books.append({"title": child.name})
     return {"books": books}
+
+
+@app.post("/api/reload")
+async def api_reload():
+    """清空作品缓存（ingest / 手动改卡后调用，让新数据立即可见）。"""
+    _cache.clear()
+    return {"reloaded": True}
 
 
 @app.get("/api/books/{title}/overview")
