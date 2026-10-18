@@ -403,6 +403,14 @@ function chapterNum(ch) {
     const m = String(ch).match(/第([0-9零一二两三四五六七八九十百千]+)章/);
     return m ? cnNum(m[1]) : 0;
 }
+// 章节显示兜底：「第X章」开头的只显示章号（epub 章节标题可能混入大段正文）；其余超长截断
+function chapterLabel(ch) {
+    if (!ch) return "时间不详";
+    const n = chapterNum(ch);
+    if (n && /^第[0-9零一二两三四五六七八九十百千]+章/.test(ch)) return `第${n}章`;
+    ch = String(ch).trim();
+    return ch.length > 24 ? ch.slice(0, 24) + "…" : ch;
+}
 function chapterDensity(events) {
     const map = {};
     events.forEach(e => {
@@ -617,7 +625,7 @@ function axRowHTML(g) {
     const cards = g.events.slice(0, 6).map(e => `
       <div class="axec ${IMPCLS[e.importance] || ""}">
         <b data-open="${esc(e.name)}" title="${esc(e.name)}">${esc(e.name)}</b>
-        <div class="axecm">${esc(e.chapter || "时间不详")}${e.importance ? ` · 重要度 ${e.importance}` : ""}</div>
+        <div class="axecm">${esc(chapterLabel(e.chapter))}${e.importance ? ` · 重要度 ${e.importance}` : ""}</div>
         ${(e.participants || []).length ? `<div class="axews">${axWho(e.participants)}</div>` : ""}
       </div>`).join("");
     const rest = g.events.length > 6

@@ -29,6 +29,9 @@ data/output/
 data/wiki.db
 output/
 
+# 上传原文（含版权作品，禁止提交）
+data/input/
+
 # Obsidian 配置（每台机器不同）
 vault/.obsidian/
 
