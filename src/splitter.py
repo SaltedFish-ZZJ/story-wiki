@@ -284,8 +284,15 @@ def _split_by_chunks(text: str, chunk_size: int) -> list[Chapter]:
     if len(text) <= chunk_size:
         return [Chapter(index=1, title="全文", text=text)]
 
+    paragraphs = [p for p in (x.strip() for x in re.split(r'\n{2,}', text)) if p]
+    if len(paragraphs) < 2:
+        # 紧凑文本（无章节标记且无空行分段）无法按段落累积，
+        # 退化为带重叠窗口的硬切分，避免整书塞进单个块
+        logger.info("文本无空行分段，使用重叠窗口硬切分")
+        return _split_by_chunks_with_overlap(text, chunk_size)
+
     # 使用迭代器处理段落
-    paragraphs_iter = re.split(r'\n{2,}', text)
+    paragraphs_iter = iter(paragraphs)
 
     chapters = []
     current_text = ""
