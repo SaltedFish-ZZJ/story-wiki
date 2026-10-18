@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.13.3 (2026-10-18)
+
+### 功能 — MCP 读侧 Server
+
+- 新增 `web/mcp_server.py`：把小说知识库以 MCP（Model Context Protocol）工具形式暴露给任意 MCP 客户端（Trae / Claude Desktop / WorkBuddy 等），stdio 传输，`python -m web.mcp_server` 启动
+- 9 个只读工具，零 LLM 调用：`list_books`（书目+统计）、`get_overview`（摘要+核心人物）、`search`（FTS5 跨作品搜索含中文子串兜底）、`list_characters`（分组名单）、`get_character` / `get_event` / `get_setting`（卡片详情）、`get_timeline`（按章节分组时间线，支持重要度/人物过滤）、`get_graph`（关系图谱 nodes+edges）
+- 复用 `web.app` 解析层（含内存缓存）与 `src.db` 搜索；错误路径（书/人物不存在、索引缺失）返回可读 JSON 而非抛异常
+- 依赖声明：pyproject 新增 `mcp` 可选分组（`pip install -e .[mcp]`）
+- 客户端接入：MCP 配置指向 `command: python, args: ["-m", "web.mcp_server"], cwd: <项目根>`；smoke test 实测 9 工具握手、搜索命中、图谱 154 节点/384 边
+
+### 修复
+
+- 前端新增 `chapterLabel()`：epub 章节标题混入大段正文时（如《以日为鉴》第五章），「第X章」开头的字段只显示章号，其余超 24 字截断；事件卡 meta 不再透出超长原文
+- .gitignore 增加 `data/input/`（上传原文含版权内容，禁止入库）
+
+**测试结果：** 650 passed, 0 failed
+
 ## v0.13.2 (2026-10-17)
 
 ### 界面 — Web 前端 v7 全面改版（杂志式设计）
