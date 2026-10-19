@@ -65,7 +65,7 @@ Agent 生态
 |---|---|
 | Python 模块 | 40 个（含 6 个 CLI 子命令模块） |
 | 代码行数 | 源码 12,800+ 行 + 测试 9,100+ 行 |
-| 单元测试 | 650 个（pytest，全部通过） |
+| 单元测试 | 678 个（pytest，全部通过，含 MCP stdio 协议层冒烟） |
 | 实测文本 | 80 万字长篇小说（平凡的世界全三部，1,253 实体入库） |
 | 模型接入 | 任意 OpenAI 兼容接口（默认小米 MiMo，可换 DeepSeek） |
 | Web 界面 | FastAPI + 原生 JS，19 个 API 接口 |
@@ -150,7 +150,7 @@ python -m pip install -e ".[web]"
 python -m pip install -e ".[office]"
 
 # 开发与测试（包含全部可选能力）
-python -m pip install -e ".[formats,office,web,test]"
+python -m pip install -e ".[formats,office,web,mcp,test]"
 ```
 
 安装完成后可用 `story-wiki --help` 或 `python src/main.py --help` 检查 CLI。
