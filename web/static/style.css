@@ -379,3 +379,28 @@ body.dark .axwho:hover{color:#141412}
   .hero h1{font-size:28px}.topbar{padding:0 18px}.hero,.wall,.bookview{padding-left:18px;padding-right:18px}
   .gauges{gap:18px}
 }
+
+
+/* ══════════════════════════════════════════════════════════════
+   打印 / 导出 PDF —— Ctrl+P 或顶栏 🖨️ 触发
+   强制浅色主题 + 隐藏界面元素 + 卡片分页防截断
+   ══════════════════════════════════════════════════════════════ */
+@media print{
+  body.dark{
+    --bg:#fff; --card:#fff; --ink:#111; --sub:#666;
+    --line:#ddd; --line2:#ccc; --accent:#2B5D68; --accent-soft:#EDF3F3;
+    --blob1:transparent; --blob2:transparent;
+  }
+  body{background:#fff}
+  .gridbg,.blob,.topbar,.statusbar,.pagenav,.toast,.mask,.drawer,
+  .searchbox,.navbtn,.themetoggle,.morebtn,.ghostbtn,.startbtn,
+  .axlegend,.morewrap{display:none!important}
+  .bsec{padding:16px 0!important;page-break-before:auto}
+  .bsec + .bsec{border-top:1px solid var(--line)}
+  .sec-head{break-after:avoid}
+  .panel,.charcard,.setcard,.axrow,.axec,.ov-grid,.book-head{
+    box-shadow:none!important;break-inside:avoid}
+  .panel,.charcard,.setcard{border:1px solid var(--line)!important}
+  .graphwrap,#graph-chart{break-inside:avoid}
+  a{text-decoration:none;color:inherit}
+}

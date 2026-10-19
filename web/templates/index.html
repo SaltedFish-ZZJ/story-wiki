@@ -24,6 +24,7 @@
   <div class="spacer"></div>
   <button class="navbtn" data-goto="home">首页</button>
   <button class="navbtn" data-goto="settings">设置</button>
+  <button class="themetoggle" id="printbtn" title="打印 / 导出 PDF 报告">🖨️</button>
   <button class="themetoggle" id="themebtn" title="明暗切换">🌙</button>
 </header>
 
@@ -241,6 +242,26 @@ function applyTheme(dark, persist) {
 $("#themebtn").addEventListener("click", () =>
     applyTheme(!document.body.classList.contains("dark"), true));
 applyTheme(localStorage.getItem("sw-theme") === "dark", false);
+
+// ── 打印 / 导出 PDF ────────────────────────────────────────
+// 打印前把增量渲染的内容全量展开，否则 PDF 会缺页：
+// 时间线（滚动加载）、折叠的人物/设定卡（.extra）
+function preparePrint() {
+    if (state.view !== "book" || !state.book) return;
+    axShown = axGroups.length;
+    drawSpine();
+    document.querySelectorAll(".m-group:not(.open)").forEach(g => {
+        g.classList.add("open");
+        g.querySelectorAll(".extra").forEach(el => el.style.display = "");
+    });
+    document.querySelectorAll(".extra").forEach(el => el.style.display = "");
+}
+$("#printbtn").addEventListener("click", () => {
+    if (state.view !== "book") { toast("进入作品页后，点此打印 / 导出 PDF"); return; }
+    preparePrint();
+    window.print();
+});
+window.addEventListener("beforeprint", preparePrint);
 
 // ── 视图切换 ───────────────────────────────────────────────
 function show(view) {
