@@ -9,6 +9,7 @@ Story Wiki - AI 分析模块测试
 - 上下文构建、上下文摘要生成
 """
 import json
+from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 import pytest
@@ -564,3 +565,39 @@ class TestAnalyzeChapter:
         known_chars = [{"name": "已知人物", "role_tags": [], "relationships": [], "status": "活跃"}]
         result = analyze_chapter("章节文本", known_characters=known_chars)
         assert "characters" in result
+
+
+class TestCausalChainPrompt:
+    """因果链 prompt 加固：cause/effect 不再是「可选」，必须引导 LLM 填事件名。"""
+
+    def test_system_prompt_requires_causal_chain(self):
+        from src.analyzer import SYSTEM_PROMPT
+        assert "因果链是知识库的核心价值" in SYSTEM_PROMPT
+        assert "一字不差" in SYSTEM_PROMPT
+        # cause/effect 的 schema 描述不再用「可选」弱化
+        assert "前置事件名（可选）" not in SYSTEM_PROMPT
+        assert "后果或影响（可选）" not in SYSTEM_PROMPT
+        # effect 明确要求事件名而非描述文字
+        assert "不是后果描述" in SYSTEM_PROMPT or "不要填描述性文字" in SYSTEM_PROMPT
+
+    def test_chapter_prompt_requires_causal_chain(self):
+        from src.analyzer import CHAPTER_SYSTEM_PROMPT
+        assert "因果链是知识库的核心价值" in CHAPTER_SYSTEM_PROMPT
+        assert "由那一章的 cause 回填" in CHAPTER_SYSTEM_PROMPT
+        assert "前置事件名（可选）" not in CHAPTER_SYSTEM_PROMPT
+        assert "导致的后果（可选）" not in CHAPTER_SYSTEM_PROMPT
+
+    def test_chapter_prompt_injects_known_events(self):
+        """跨章因果链的原料：上下文必须包含已知事件名。"""
+        from src.analyzer import _build_chapter_context
+        ctx = _build_chapter_context(
+            known_characters=[], known_settings=[],
+            known_events=[{"name": "蟠桃会"}])
+        assert "已知事件" in ctx and "蟠桃会" in ctx
+
+    def test_skill_md_aligned_with_prompt(self):
+        """SKILL.md 与内置 prompt 因果链措辞一致，防止两边漂移。"""
+        skill = (Path(__file__).resolve().parent.parent
+                 / "skills" / "story-wiki" / "SKILL.md").read_text(encoding="utf-8")
+        assert "因果链是核心价值" in skill
+        assert "不是后果描述文字" in skill
