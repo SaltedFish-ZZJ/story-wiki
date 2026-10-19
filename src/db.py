@@ -255,7 +255,12 @@ def search_entities(conn: sqlite3.Connection, query: str, kind: str | None = Non
         fallback_params.append(kind)
     fallback_sql += " ORDER BY LENGTH(e.name) LIMIT ?"
     fallback_params.append(max(1, min(int(limit), 100)))
-    return [dict(r) for r in conn.execute(fallback_sql, fallback_params).fetchall()]
+    try:
+        rows = conn.execute(fallback_sql, fallback_params).fetchall()
+    except sqlite3.OperationalError:
+        # 空库（未建索引）等表缺失场景，与上方 FTS 兜底语义一致
+        rows = []
+    return [dict(r) for r in rows]
 
 
 def document_stats(conn: sqlite3.Connection) -> list[dict]:
