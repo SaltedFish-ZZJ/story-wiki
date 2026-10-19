@@ -1,5 +1,7 @@
 # Story Wiki
 
+[![CI](https://github.com/SaltedFish-ZZJ/story-wiki/actions/workflows/ci.yml/badge.svg)](https://github.com/SaltedFish-ZZJ/story-wiki/actions/workflows/ci.yml)
+
 ## 它解决什么问题
 
 把一本 80 万字的长篇小说交给 AI，它会忘掉前面的角色。分块处理时上下文被切断，前后块里的同一个人被当成两个人，关系网越读越乱。
