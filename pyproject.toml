@@ -22,7 +22,7 @@ web = [
     "uvicorn>=0.34",
 ]
 mcp = [
-    "mcp>=1.0",
+    "mcp>=1.0,<2",
 ]
 test = [
     "httpx>=0.28",
