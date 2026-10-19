@@ -327,10 +327,9 @@ python src/main.py --batch-export --title "红楼梦"
 story_wiki/
 ├── src/           ← 源代码（分析管线 + db.py 元数据层 + indexer.py 索引器）
 ├── web/           ← FastAPI 后端 + 前端（app.py / tasks.py / auth.py / templates）
-├── vault/         ← Obsidian vault 输出
 ├── data/          ← 输入文本和中间数据
 │   ├── input/     ← 待分析文本放这里（Web 上传也落在这里）
-│   ├── output/    ← Web 界面读取的分析产物
+│   ├── output/    ← 分析产物：人物/事件/设定 md 卡片（Obsidian 可直接打开当 Vault）
 │   ├── wiki.db    ← SQLite 元数据库（FTS5 全文索引）
 │   └── state/     ← 分析状态和缓存
 │       └── cache/ ← 分析结果缓存
