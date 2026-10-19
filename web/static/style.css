@@ -392,6 +392,10 @@ body.dark .axwho:hover{color:#141412}
     --blob1:transparent; --blob2:transparent;
   }
   body{background:#fff}
+  /* 浏览器打印默认丢弃 CSS 背景——密度柱等靠背景传递信息的图元必须强制打印 */
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .dens .bar i{background:var(--accent-soft)!important}
+  .dens .bar.max i{background:var(--accent)!important}
   .gridbg,.blob,.topbar,.statusbar,.pagenav,.toast,.mask,.drawer,
   .searchbox,.navbtn,.themetoggle,.morebtn,.ghostbtn,.startbtn,
   .axlegend,.morewrap{display:none!important}
